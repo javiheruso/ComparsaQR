@@ -47,7 +47,10 @@ export default function ScannerPage() {
       });
 
     return () => {
-      scanner.stop().catch(() => {});
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
     };
   }, [scanning, onScanSuccess, onScanFailure]);
 
