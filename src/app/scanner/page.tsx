@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter } from "next/navigation";
 
 export default function ScannerPage() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cameraReady, setCameraReady] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
 
@@ -16,71 +15,48 @@ export default function ScannerPage() {
       try {
         await scannerRef.current.stop();
       } catch {
-        // scanner was already stopped or never started
+        // already stopped
       }
       scannerRef.current = null;
     }
   }, []);
 
-  const onScanSuccess = useCallback(
-    (decodedText: string) => {
-      stopScanner().then(() => {
-        setScanning(false);
-        setCameraReady(false);
-        router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
-      });
-    },
-    [router, stopScanner]
-  );
+  const startScanner = useCallback(async () => {
+    setError(null);
+    setScanning(true);
 
-  const onScanFailure = useCallback(() => {
-    // QR not detected in a frame — normal during scanning
-  }, []);
+    // requestAnimationFrame ensures React flushed the DOM update
+    // (scanner-element div is now in the document)
+    await new Promise((resolve) => requestAnimationFrame(resolve));
 
-  // Start scanner when scanning becomes true and DOM has rendered
-  useEffect(() => {
-    if (!scanning) return;
-
-    let cancelled = false;
-
-    // Small delay ensures React rendered the #scanner-element div
-    const timeout = setTimeout(() => {
-      if (cancelled) return;
-
+    try {
       const scanner = new Html5Qrcode("scanner-element");
       scannerRef.current = scanner;
 
-      scanner
-        .start(
-          { facingMode: { ideal: "environment" } },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          onScanSuccess,
-          onScanFailure
-        )
-        .then(() => {
-          if (!cancelled) setCameraReady(true);
-        })
-        .catch((err: unknown) => {
-          if (cancelled) return;
-          const msg = err instanceof Error ? err.message : String(err);
-          setError(`No se pudo acceder a la cámara: ${msg}`);
+      await scanner.start(
+        { facingMode: { ideal: "environment" } },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          scanner.stop().catch(() => {});
           scannerRef.current = null;
           setScanning(false);
-        });
-    }, 100);
+          router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
+        },
+        () => {
+          // QR not found in a frame — normal, ignore
+        }
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`No se pudo acceder a la cámara: ${msg}`);
+      scannerRef.current = null;
+      setScanning(false);
+    }
+  }, [router]);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-      stopScanner();
-    };
-  }, [scanning, onScanSuccess, onScanFailure, stopScanner]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopScanner();
-    };
+  const handleStop = useCallback(async () => {
+    await stopScanner();
+    setScanning(false);
   }, [stopScanner]);
 
   return (
@@ -109,10 +85,7 @@ export default function ScannerPage() {
               Escanea el código QR de la pulsera del socio
             </p>
             <button
-              onClick={() => {
-                setError(null);
-                setScanning(true);
-              }}
+              onClick={startScanner}
               className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity"
             >
               Activar Cámara
@@ -124,16 +97,8 @@ export default function ScannerPage() {
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
-            {!cameraReady && !error && (
-              <p className="text-center text-muted-foreground text-sm">Iniciando cámara...</p>
-            )}
             <button
-              onClick={() => {
-                stopScanner().then(() => {
-                  setScanning(false);
-                  setCameraReady(false);
-                });
-              }}
+              onClick={handleStop}
               className="w-full py-3 px-6 border border-destructive text-destructive rounded-xl font-medium hover:bg-destructive/5 transition-colors"
             >
               Detener Escáner
