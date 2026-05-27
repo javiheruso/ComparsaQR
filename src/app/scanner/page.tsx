@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter } from "next/navigation";
 
@@ -8,56 +8,112 @@ export default function ScannerPage() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isRunningRef = useRef(false);
+  const hasReadQrRef = useRef(false);
   const router = useRouter();
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch {
-        // already stopped
-      }
-      scannerRef.current = null;
+  const safeStopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+
+    if (!scanner) {
+      isRunningRef.current = false;
+      return;
     }
-  }, []);
-
-  const startScanner = useCallback(async () => {
-    setError(null);
-    setScanning(true);
-
-    // requestAnimationFrame ensures React flushed the DOM update
-    // (scanner-element div is now in the document)
-    await new Promise((resolve) => requestAnimationFrame(resolve));
 
     try {
-      const scanner = new Html5Qrcode("scanner-element");
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        { facingMode: { ideal: "environment" } },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          scanner.stop().catch(() => {});
-          scannerRef.current = null;
-          setScanning(false);
-          router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
-        },
-        () => {
-          // QR not found in a frame — normal, ignore
-        }
-      );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`No se pudo acceder a la cámara: ${msg}`);
-      scannerRef.current = null;
-      setScanning(false);
+      if (isRunningRef.current) {
+        await scanner.stop();
+      }
+    } catch (err) {
+      console.warn("El escáner ya estaba detenido o no llegó a iniciarse:", err);
     }
-  }, [router]);
 
-  const handleStop = useCallback(async () => {
-    await stopScanner();
+    try {
+      scanner.clear();
+    } catch (err) {
+      console.warn("No se pudo limpiar el escáner:", err);
+    }
+
+    scannerRef.current = null;
+    isRunningRef.current = false;
+  }, []);
+
+  const extractToken = (decodedText: string) => {
+    try {
+      const url = new URL(decodedText);
+      return url.searchParams.get("token") || decodedText;
+    } catch {
+      return decodedText;
+    }
+  };
+
+  useEffect(() => {
+    if (!scanning) return;
+
+    let cancelled = false;
+
+    const startScanner = async () => {
+      setError(null);
+      hasReadQrRef.current = false;
+
+      try {
+        await safeStopScanner();
+
+        const scanner = new Html5Qrcode("scanner-element");
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          async (decodedText) => {
+            if (hasReadQrRef.current) return;
+
+            hasReadQrRef.current = true;
+            const token = extractToken(decodedText);
+
+            await safeStopScanner();
+            setScanning(false);
+            router.push(`/scanner/result?token=${encodeURIComponent(token)}`);
+          },
+          () => {}
+        );
+
+        isRunningRef.current = true;
+
+        if (cancelled) {
+          await safeStopScanner();
+        }
+      } catch (err) {
+        console.error("No se pudo iniciar el escáner:", err);
+
+        if (!cancelled) {
+          await safeStopScanner();
+          setError("No se pudo acceder a la cámara. Permite el acceso e intenta de nuevo.");
+          setScanning(false);
+        }
+      }
+    };
+
+    const frameId = requestAnimationFrame(() => {
+      startScanner();
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frameId);
+      safeStopScanner();
+    };
+  }, [router, safeStopScanner, scanning]);
+
+  const activateScanner = () => {
+    setError(null);
+    setScanning(true);
+  };
+
+  const stopScanner = async () => {
+    await safeStopScanner();
     setScanning(false);
-  }, [stopScanner]);
+  };
 
   return (
     <main className="flex-1 flex flex-col">
@@ -85,20 +141,20 @@ export default function ScannerPage() {
               Escanea el código QR de la pulsera del socio
             </p>
             <button
-              onClick={startScanner}
+              onClick={activateScanner}
               className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity"
             >
               Activar Cámara
             </button>
             {error && (
-              <p className="text-destructive text-sm max-w-xs">{error}</p>
+              <p className="text-destructive text-sm">{error}</p>
             )}
           </div>
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
             <button
-              onClick={handleStop}
+              onClick={stopScanner}
               className="w-full py-3 px-6 border border-destructive text-destructive rounded-xl font-medium hover:bg-destructive/5 transition-colors"
             >
               Detener Escáner
