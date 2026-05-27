@@ -7,61 +7,81 @@ import { useRouter } from "next/navigation";
 export default function ScannerPage() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
 
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {
+        // scanner was already stopped or never started
+      }
+      scannerRef.current = null;
+    }
+  }, []);
+
   const onScanSuccess = useCallback(
     (decodedText: string) => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current = null;
-      }
-      setScanning(false);
-      router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
+      stopScanner().then(() => {
+        setScanning(false);
+        setCameraReady(false);
+        router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
+      });
     },
-    [router]
+    [router, stopScanner]
   );
 
   const onScanFailure = useCallback(() => {
-    // Silently ignore QR detection failures while scanning
+    // QR not detected in a frame — normal during scanning
   }, []);
 
-  // Start scanner only when scanning becomes true and DOM has the target element
+  // Start scanner when scanning becomes true and DOM has rendered
   useEffect(() => {
     if (!scanning) return;
 
-    const scanner = new Html5Qrcode("scanner-element");
-    scannerRef.current = scanner;
+    let cancelled = false;
 
-    scanner
-      .start(
-        { facingMode: { ideal: "environment" } },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        onScanSuccess,
-        onScanFailure
-      )
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(`No se pudo acceder a la cámara: ${msg}`);
-        setScanning(false);
-      });
+    // Small delay ensures React rendered the #scanner-element div
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+
+      const scanner = new Html5Qrcode("scanner-element");
+      scannerRef.current = scanner;
+
+      scanner
+        .start(
+          { facingMode: { ideal: "environment" } },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          onScanFailure
+        )
+        .then(() => {
+          if (!cancelled) setCameraReady(true);
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(`No se pudo acceder a la cámara: ${msg}`);
+          scannerRef.current = null;
+          setScanning(false);
+        });
+    }, 100);
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      cancelled = true;
+      clearTimeout(timeout);
+      stopScanner();
     };
-  }, [scanning, onScanSuccess, onScanFailure]);
+  }, [scanning, onScanSuccess, onScanFailure, stopScanner]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-      }
+      stopScanner();
     };
-  }, []);
+  }, [stopScanner]);
 
   return (
     <main className="flex-1 flex flex-col">
@@ -104,13 +124,15 @@ export default function ScannerPage() {
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
+            {!cameraReady && !error && (
+              <p className="text-center text-muted-foreground text-sm">Iniciando cámara...</p>
+            )}
             <button
-              onClick={async () => {
-                if (scannerRef.current) {
-                  await scannerRef.current.stop().catch(() => {});
-                  scannerRef.current = null;
-                }
-                setScanning(false);
+              onClick={() => {
+                stopScanner().then(() => {
+                  setScanning(false);
+                  setCameraReady(false);
+                });
               }}
               className="w-full py-3 px-6 border border-destructive text-destructive rounded-xl font-medium hover:bg-destructive/5 transition-colors"
             >
