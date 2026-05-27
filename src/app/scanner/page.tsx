@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +10,48 @@ export default function ScannerPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
 
+  const onScanSuccess = useCallback(
+    (decodedText: string) => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
+      setScanning(false);
+      router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
+    },
+    [router]
+  );
+
+  const onScanFailure = useCallback(() => {
+    // Silently ignore QR detection failures while scanning
+  }, []);
+
+  // Start scanner only when scanning becomes true and DOM has the target element
+  useEffect(() => {
+    if (!scanning) return;
+
+    const scanner = new Html5Qrcode("scanner-element");
+    scannerRef.current = scanner;
+
+    scanner
+      .start(
+        { facingMode: { ideal: "environment" } },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        onScanFailure
+      )
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`No se pudo acceder a la cámara: ${msg}`);
+        setScanning(false);
+      });
+
+    return () => {
+      scanner.stop().catch(() => {});
+    };
+  }, [scanning, onScanSuccess, onScanFailure]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
@@ -17,38 +59,6 @@ export default function ScannerPage() {
       }
     };
   }, []);
-
-  const startScanner = async () => {
-    setError(null);
-    setScanning(true);
-
-    try {
-      const scanner = new Html5Qrcode("scanner-element");
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          scanner.stop().catch(() => {});
-          setScanning(false);
-          router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
-        },
-        () => {}
-      );
-    } catch (err) {
-      setError("No se pudo acceder a la cámara. Permite el acceso e intenta de nuevo.");
-      setScanning(false);
-    }
-  };
-
-  const stopScanner = async () => {
-    if (scannerRef.current) {
-      await scannerRef.current.stop().catch(() => {});
-      scannerRef.current = null;
-    }
-    setScanning(false);
-  };
 
   return (
     <main className="flex-1 flex flex-col">
@@ -76,20 +86,29 @@ export default function ScannerPage() {
               Escanea el código QR de la pulsera del socio
             </p>
             <button
-              onClick={startScanner}
+              onClick={() => {
+                setError(null);
+                setScanning(true);
+              }}
               className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity"
             >
               Activar Cámara
             </button>
             {error && (
-              <p className="text-destructive text-sm">{error}</p>
+              <p className="text-destructive text-sm max-w-xs">{error}</p>
             )}
           </div>
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
             <button
-              onClick={stopScanner}
+              onClick={async () => {
+                if (scannerRef.current) {
+                  await scannerRef.current.stop().catch(() => {});
+                  scannerRef.current = null;
+                }
+                setScanning(false);
+              }}
               className="w-full py-3 px-6 border border-destructive text-destructive rounded-xl font-medium hover:bg-destructive/5 transition-colors"
             >
               Detener Escáner
