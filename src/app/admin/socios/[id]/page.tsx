@@ -98,7 +98,7 @@ export default function SocioDetailPage() {
   }
 
   const qrUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/scanner?token=${socio.qrToken}`
+    ? `${window.location.origin}/scanner/result?token=${socio.qrToken}`
     : "";
 
   return (
@@ -224,7 +224,7 @@ export default function SocioDetailPage() {
                     {t.tipo === "carga" ? "Carga" : "Consumición"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t.descripcion}
+                    {t.descripcion && <>{t.descripcion}<br /></>}
                     {new Date(t.createdAt).toLocaleString("es-ES")}
                   </p>
                 </div>

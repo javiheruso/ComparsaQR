@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function AdminLayout({
   children,
@@ -10,6 +11,13 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
+
+  const cerrarSesion = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/admin/login");
+    router.refresh();
+  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -68,6 +76,12 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/login" onClick={() => setMenuOpen(false)}>
             Cambiar Sesión
           </AdminNavLink>
+          <button
+            onClick={() => { cerrarSesion(); setMenuOpen(false); }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Cerrar Sesión
+          </button>
         </nav>
 
         {/* ─── Overlay móvil ──────────────────────────── */}
@@ -117,6 +131,12 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/login" onClick={() => setMenuOpen(false)}>
             Cambiar Sesión
           </AdminNavLink>
+          <button
+            onClick={() => { cerrarSesion(); setMenuOpen(false); }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Cerrar Sesión
+          </button>
         </nav>
 
         {/* Contenido principal */}

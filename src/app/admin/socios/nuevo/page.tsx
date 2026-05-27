@@ -47,7 +47,7 @@ export default function NuevoSocioPage() {
   };
 
   if (nuevoSocio) {
-    const qrUrl = `${window.location.origin}/scanner?token=${nuevoSocio.qrToken}`;
+    const qrUrl = `${window.location.origin}/scanner/result?token=${nuevoSocio.qrToken}`;
     return (
       <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-bold">Socio Creado</h1>

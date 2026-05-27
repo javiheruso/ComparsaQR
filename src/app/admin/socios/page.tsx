@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
-import { Search, Plus, Check, X } from "lucide-react";
+import { Search, Plus, Check, X, Download } from "lucide-react";
 
 interface Socio {
   id: number;
@@ -41,22 +41,46 @@ export default function SociosPage() {
     }
   };
 
-  const togglePulsera = async (id: number) => {
+  const togglePulsera = async (id: number, nombre: string, estadoActual: string) => {
+    if (!confirm(`¿${estadoActual === "activa" ? "Desactivar" : "Activar"} la pulsera de ${nombre}?`)) return;
     await fetch(`/api/socios/${id}/toggle-pulsera`, { method: "PATCH" });
     fetchSocios();
+  };
+
+  const exportarCSV = (socios: Socio[]) => {
+    const cabecera = "Nº Socio,Nombre,Crédito,Estado";
+    const filas = socios.map((s) => `${s.numeroSocio},"${s.nombre}",${s.credito},${s.estadoPulsera}`);
+    const csv = [cabecera, ...filas].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "socios.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Socios</h1>
-        <Link
-          href="/admin/socios/nuevo"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportarCSV(socios)}
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+            title="Exportar CSV"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
+          <Link
+            href="/admin/socios/nuevo"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo
+          </Link>
+        </div>
       </div>
 
       <div className="relative">
@@ -105,7 +129,7 @@ export default function SociosPage() {
                     {formatEuro(socio.credito)}
                   </span>
                   <button
-                    onClick={() => togglePulsera(socio.id)}
+                    onClick={() => togglePulsera(socio.id, socio.nombre, socio.estadoPulsera)}
                     className={`p-1.5 rounded-lg transition-colors ${
                       socio.estadoPulsera === "activa"
                         ? "text-green-600 hover:bg-green-100"
