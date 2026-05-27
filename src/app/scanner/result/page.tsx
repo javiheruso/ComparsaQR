@@ -37,6 +37,10 @@ function ScannerResultContent() {
   const [mostrarCargar, setMostrarCargar] = useState(false);
   const [cargarCantidad, setCargarCantidad] = useState("");
   const [cargarDescripcion, setCargarDescripcion] = useState("");
+  const [mostrarAuth, setMostrarAuth] = useState(false);
+  const [passwordCarga, setPasswordCarga] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [verificando, setVerificando] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -129,6 +133,36 @@ function ScannerResultContent() {
   };
 
   // ─── Cargar saldo ───────────────────────────────────
+  // ─── Verificar contraseña para cargar saldo ────────
+  const verificarParaCargar = async () => {
+    if (!passwordCarga) return;
+    setVerificando(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordCarga }),
+      });
+
+      if (res.ok) {
+        setMostrarAuth(false);
+        setPasswordCarga("");
+        setError(null);
+        setCargarCantidad("");
+        setCargarDescripcion("");
+        setMostrarCargar(true);
+      } else {
+        setAuthError("Contraseña incorrecta");
+      }
+    } catch {
+      setAuthError("Error de conexión");
+    } finally {
+      setVerificando(false);
+    }
+  };
+
   const cargarSaldo = async () => {
     if (!socio || !cargarCantidad) return;
 
@@ -223,10 +257,9 @@ function ScannerResultContent() {
               <p className="text-xs text-muted-foreground">Crédito</p>
               <button
                 onClick={() => {
-                  setError(null);
-                  setCargarCantidad("");
-                  setCargarDescripcion("");
-                  setMostrarCargar(true);
+                  setAuthError(null);
+                  setPasswordCarga("");
+                  setMostrarAuth(true);
                 }}
                 className="text-primary hover:opacity-80 transition-opacity"
                 title="Cargar saldo"
@@ -402,6 +435,63 @@ function ScannerResultContent() {
               </button>
               <button
                 onClick={() => setMostrarConfirmacion(false)}
+                className="px-4 py-2.5 border border-border rounded-xl font-medium hover:bg-muted"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal: verificar contraseña ────────────────── */}
+      {mostrarAuth && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-amber-600" />
+              <h2 className="text-lg font-bold">Cargar Saldo</h2>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Introduce la contraseña de administrador para poder cargar crédito.
+            </p>
+
+            <div>
+              <input
+                type="password"
+                value={passwordCarga}
+                onChange={(e) => {
+                  setPasswordCarga(e.target.value);
+                  setAuthError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") verificarParaCargar();
+                }}
+                placeholder="Contraseña"
+                autoFocus
+                className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              />
+            </div>
+
+            {authError && (
+              <p className="text-destructive text-sm text-center">{authError}</p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={verificarParaCargar}
+                disabled={verificando || !passwordCarga}
+                className="flex-1 py-2.5 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
+              >
+                {verificando ? "Verificando..." : "Verificar"}
+              </button>
+              <button
+                onClick={() => {
+                  setMostrarAuth(false);
+                  setPasswordCarga("");
+                  setAuthError(null);
+                }}
                 className="px-4 py-2.5 border border-border rounded-xl font-medium hover:bg-muted"
               >
                 Cancelar
