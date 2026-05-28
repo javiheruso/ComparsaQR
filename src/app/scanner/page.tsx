@@ -141,12 +141,11 @@ function ScannerContent() {
         cameraId,
         {
           fps: 15,
-          aspectRatio: 1.777778,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const size = Math.floor(
-              Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.82, 340)
+              Math.min(viewfinderWidth * 0.96, viewfinderHeight * 0.96)
             );
-            const safeSize = Math.max(size, 180);
+            const safeSize = Math.max(size, 260);
             return { width: safeSize, height: safeSize };
           },
         },
@@ -221,7 +220,7 @@ function ScannerContent() {
         <h1 className="text-lg font-semibold">Escanear Pulsera</h1>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-3 py-5 sm:p-6">
         {!scanning ? (
           <div className="w-full max-w-sm text-center space-y-5">
             <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
@@ -266,8 +265,11 @@ function ScannerContent() {
             )}
           </div>
         ) : (
-          <div className="w-full max-w-sm space-y-4">
-            <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
+          <div className="w-full max-w-2xl space-y-4">
+            <div
+              id="scanner-element"
+              className="w-full min-h-[430px] h-[62dvh] max-h-[680px] rounded-xl overflow-hidden bg-black [&_video]:!h-full [&_video]:!w-full [&_video]:!object-cover"
+            />
             <p className="text-xs text-muted-foreground text-center">
               Si no lee la pulsera, prueba otra cámara y acerca o aleja despacio hasta que enfoque.
             </p>
