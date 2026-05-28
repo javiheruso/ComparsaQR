@@ -12,6 +12,12 @@ interface CameraDevice {
 
 const LAST_CAMERA_KEY = "comparsa_scanner_camera_id";
 
+function waitForScannerElement(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
 function getPreferredCamera(cameras: CameraDevice[]): string {
   const storedCameraId = window.localStorage.getItem(LAST_CAMERA_KEY);
   const storedCamera = cameras.find((camera) => camera.id === storedCameraId);
@@ -30,6 +36,7 @@ function ScannerContent() {
   const [error, setError] = useState<string | null>(null);
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [activeCameraId, setActiveCameraId] = useState("");
   const [loadingCameras, setLoadingCameras] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
@@ -66,26 +73,29 @@ function ScannerContent() {
 
       if (nextCameras.length === 0) {
         setError("No se ha encontrado ninguna cámara.");
-        return "";
+        return [];
       }
 
       const cameraId = getPreferredCamera(nextCameras);
       setSelectedCameraId(cameraId);
-      return cameraId;
+      return nextCameras;
     } catch {
       setError("No se pudo listar las cámaras. Revisa los permisos del navegador.");
-      return "";
+      return [];
     } finally {
       setLoadingCameras(false);
     }
   };
 
-  const startScanner = async () => {
+  const startScanner = async (cameraIdOverride?: string) => {
     setError(null);
     setScanning(true);
 
     try {
-      const cameraId = selectedCameraId || (await loadCameras());
+      await waitForScannerElement();
+
+      const availableCameras = cameras.length > 0 ? cameras : await loadCameras();
+      const cameraId = cameraIdOverride || selectedCameraId || getPreferredCamera(availableCameras);
 
       if (!cameraId) {
         setScanning(false);
@@ -93,6 +103,8 @@ function ScannerContent() {
       }
 
       window.localStorage.setItem(LAST_CAMERA_KEY, cameraId);
+      setSelectedCameraId(cameraId);
+      setActiveCameraId(cameraId);
 
       const scanner = new Html5Qrcode("scanner-element");
       scannerRef.current = scanner;
@@ -120,6 +132,7 @@ function ScannerContent() {
 
           scanner.stop().catch(() => {});
           setScanning(false);
+          setActiveCameraId("");
           router.push(`/scanner/result?token=${encodeURIComponent(token)}`);
         },
         () => {}
@@ -127,6 +140,7 @@ function ScannerContent() {
     } catch {
       setError("No se pudo acceder a la cámara. Prueba otra cámara o revisa los permisos.");
       setScanning(false);
+      setActiveCameraId("");
     }
   };
 
@@ -136,11 +150,34 @@ function ScannerContent() {
       scannerRef.current = null;
     }
     setScanning(false);
+    setActiveCameraId("");
   };
 
   const handleCameraChange = (cameraId: string) => {
     setSelectedCameraId(cameraId);
     window.localStorage.setItem(LAST_CAMERA_KEY, cameraId);
+  };
+
+  const switchCamera = async () => {
+    const availableCameras = cameras.length > 0 ? cameras : await loadCameras();
+
+    if (availableCameras.length < 2) {
+      setError("Solo hay una cámara disponible.");
+      return;
+    }
+
+    const currentIndex = Math.max(
+      availableCameras.findIndex((camera) => camera.id === activeCameraId),
+      0
+    );
+    const nextCamera = availableCameras[(currentIndex + 1) % availableCameras.length];
+
+    if (scannerRef.current) {
+      await scannerRef.current.stop().catch(() => {});
+      scannerRef.current = null;
+    }
+
+    await startScanner(nextCamera.id);
   };
 
   return (
@@ -191,7 +228,7 @@ function ScannerContent() {
               )}
             </div>
             <button
-              onClick={startScanner}
+              onClick={() => startScanner()}
               disabled={loadingCameras}
               className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
@@ -207,6 +244,13 @@ function ScannerContent() {
             <p className="text-xs text-muted-foreground text-center">
               Si no lee la pulsera, prueba otra cámara y acerca o aleja despacio hasta que enfoque.
             </p>
+            <button
+              onClick={switchCamera}
+              disabled={loadingCameras}
+              className="w-full py-3 px-6 border border-border rounded-xl font-medium hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              Cambiar cámara
+            </button>
             {error && (
               <p className="text-destructive text-sm text-center">{error}</p>
             )}
