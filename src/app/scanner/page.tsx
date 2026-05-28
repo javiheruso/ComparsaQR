@@ -1,14 +1,24 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Suspense, useState, useRef, useEffect } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { extractQrToken } from "@/lib/qr";
 
-export default function ScannerPage() {
+function ScannerContent() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const token = extractQrToken(searchParams.get("token") ?? "");
+
+    if (token) {
+      router.replace(`/scanner/result?token=${encodeURIComponent(token)}`);
+    }
+  }, [router, searchParams]);
 
   useEffect(() => {
     return () => {
@@ -30,13 +40,20 @@ export default function ScannerPage() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
+          const token = extractQrToken(decodedText);
+
+          if (!token) {
+            setError("QR no válido. Intenta escanear de nuevo.");
+            return;
+          }
+
           scanner.stop().catch(() => {});
           setScanning(false);
-          router.push(`/scanner/result?token=${encodeURIComponent(decodedText)}`);
+          router.push(`/scanner/result?token=${encodeURIComponent(token)}`);
         },
         () => {}
       );
-    } catch (err) {
+    } catch {
       setError("No se pudo acceder a la cámara. Permite el acceso e intenta de nuevo.");
       setScanning(false);
     }
@@ -88,6 +105,9 @@ export default function ScannerPage() {
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
+            {error && (
+              <p className="text-destructive text-sm text-center">{error}</p>
+            )}
             <button
               onClick={stopScanner}
               className="w-full py-3 px-6 border border-destructive text-destructive rounded-xl font-medium hover:bg-destructive/5 transition-colors"
@@ -98,5 +118,19 @@ export default function ScannerPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ScannerPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex-1 flex items-center justify-center p-6">
+          <p className="text-muted-foreground">Cargando...</p>
+        </main>
+      }
+    >
+      <ScannerContent />
+    </Suspense>
   );
 }

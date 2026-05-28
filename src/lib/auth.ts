@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
+import bcrypt from "bcryptjs";
+import { createHash, timingSafeEqual } from "crypto";
 
 export interface SessionData {
   isLoggedIn: boolean;
@@ -16,6 +18,20 @@ const sessionOptions = {
   },
 };
 
+function secureCompare(value: string, expected: string): boolean {
+  const valueHash = createHash("sha256").update(value).digest();
+  const expectedHash = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(valueHash, expectedHash);
+}
+
+async function verifyAdminPassword(password: string, expected: string): Promise<boolean> {
+  if (expected.startsWith("$2a$") || expected.startsWith("$2b$") || expected.startsWith("$2y$")) {
+    return bcrypt.compare(password, expected);
+  }
+
+  return secureCompare(password, expected);
+}
+
 export async function getSession() {
   const cookieStore = await cookies();
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
@@ -31,7 +47,7 @@ export async function login(password: string): Promise<boolean> {
   const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) return false;
 
-  const isValid = password === adminPassword;
+  const isValid = await verifyAdminPassword(password, adminPassword);
 
   if (isValid) {
     const cookieStore = await cookies();

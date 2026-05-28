@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { formatEuro } from "@/lib/utils";
+import { extractQrToken } from "@/lib/qr";
 import { Plus, Minus, ShoppingCart } from "lucide-react";
 
 interface SocioData {
@@ -23,7 +24,7 @@ interface Producto {
 function ScannerResultContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  const token = extractQrToken(searchParams.get("token") ?? "");
   const [socio, setSocio] = useState<SocioData | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
@@ -34,14 +35,10 @@ function ScannerResultContent() {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setError("QR no válido");
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
 
     Promise.all([
-      fetch(`/api/scanner/${token}`).then(async (res) => {
+      fetch(`/api/scanner/${encodeURIComponent(token)}`).then(async (res) => {
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error);
@@ -61,6 +58,27 @@ function ScannerResultContent() {
       });
   }, [token]);
 
+  if (!token) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+        <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+        </div>
+        <p className="text-xl font-semibold text-red-600">QR no válido</p>
+        <button
+          onClick={() => router.push("/scanner")}
+          className="mt-4 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold"
+        >
+          Volver al Escáner
+        </button>
+      </div>
+    );
+  }
+
   const totalSeleccionado = Object.entries(cantidades).reduce(
     (sum, [id, qty]) => {
       const prod = productos.find((p) => p.id === parseInt(id));
@@ -76,7 +94,8 @@ function ScannerResultContent() {
       const actual = prev[productoId] ?? 0;
       const nueva = actual + delta;
       if (nueva <= 0) {
-        const { [productoId]: _, ...rest } = prev;
+        const { [productoId]: removed, ...rest } = prev;
+        void removed;
         return rest;
       }
       return { ...prev, [productoId]: nueva };
@@ -88,19 +107,14 @@ function ScannerResultContent() {
     setProcessing(true);
 
     try {
-      const descripcion = Object.entries(cantidades)
-        .map(([id, qty]) => {
-          const prod = productos.find((p) => p.id === parseInt(id));
-          return `${prod?.nombre} x${qty}`;
-        })
-        .join(", ");
-
       const res = await fetch(`/api/socios/${socio.id}/consumo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cantidad: totalSeleccionado,
-          descripcion,
+          items: Object.entries(cantidades).map(([id, qty]) => ({
+            productoId: parseInt(id),
+            cantidad: qty,
+          })),
         }),
       });
 

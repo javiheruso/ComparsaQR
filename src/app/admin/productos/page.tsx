@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useCallback, FormEvent } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
 interface Producto {
@@ -19,9 +19,7 @@ export default function ProductosPage() {
   const [precio, setPrecio] = useState("");
   const [imagen, setImagen] = useState("");
 
-  useEffect(() => { fetchProductos(); }, []);
-
-  const fetchProductos = async () => {
+  const fetchProductos = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/productos");
@@ -31,7 +29,14 @@ export default function ProductosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProductos();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchProductos]);
 
   const resetForm = () => {
     setNombre("");
