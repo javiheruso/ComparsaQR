@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import { Search, Plus, Check, X, Download } from "lucide-react";
@@ -19,14 +19,7 @@ export default function SociosPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSocios();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const fetchSocios = async () => {
+  const fetchSocios = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -39,7 +32,14 @@ export default function SociosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSocios();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchSocios]);
 
   const togglePulsera = async (id: number, nombre: string, estadoActual: string) => {
     if (!confirm(`¿${estadoActual === "activa" ? "Desactivar" : "Activar"} la pulsera de ${nombre}?`)) return;

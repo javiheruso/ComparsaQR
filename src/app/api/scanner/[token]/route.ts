@@ -5,20 +5,26 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+  const qrToken = token.trim();
+
+  if (!qrToken || qrToken.length > 200) {
+    return Response.json({ error: "QR no válido" }, { status: 400 });
+  }
 
   const socio = await db.socio.findUnique({
-    where: { qrToken: token },
+    where: { qrToken },
+    select: {
+      id: true,
+      nombre: true,
+      numeroSocio: true,
+      credito: true,
+      estadoPulsera: true,
+    },
   });
 
   if (!socio) {
     return Response.json({ error: "QR no válido" }, { status: 404 });
   }
 
-  return Response.json({
-    id: socio.id,
-    nombre: socio.nombre,
-    numeroSocio: socio.numeroSocio,
-    credito: socio.credito,
-    estadoPulsera: socio.estadoPulsera,
-  });
+  return Response.json(socio);
 }
