@@ -5,9 +5,32 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useRouter, useSearchParams } from "next/navigation";
 import { extractQrToken } from "@/lib/qr";
 
+interface CameraDevice {
+  id: string;
+  label: string;
+}
+
+const LAST_CAMERA_KEY = "comparsa_scanner_camera_id";
+
+function getPreferredCamera(cameras: CameraDevice[]): string {
+  const storedCameraId = window.localStorage.getItem(LAST_CAMERA_KEY);
+  const storedCamera = cameras.find((camera) => camera.id === storedCameraId);
+
+  if (storedCamera) return storedCamera.id;
+
+  const backCamera = cameras.find((camera) =>
+    /back|rear|environment|trasera|posterior|espalda/i.test(camera.label)
+  );
+
+  return backCamera?.id ?? cameras[0]?.id ?? "";
+}
+
 function ScannerContent() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<CameraDevice[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [loadingCameras, setLoadingCameras] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,17 +51,65 @@ function ScannerContent() {
     };
   }, []);
 
+  const loadCameras = async () => {
+    setError(null);
+    setLoadingCameras(true);
+
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      const nextCameras = devices.map((device, index) => ({
+        id: device.id,
+        label: device.label || `Cámara ${index + 1}`,
+      }));
+
+      setCameras(nextCameras);
+
+      if (nextCameras.length === 0) {
+        setError("No se ha encontrado ninguna cámara.");
+        return "";
+      }
+
+      const cameraId = getPreferredCamera(nextCameras);
+      setSelectedCameraId(cameraId);
+      return cameraId;
+    } catch {
+      setError("No se pudo listar las cámaras. Revisa los permisos del navegador.");
+      return "";
+    } finally {
+      setLoadingCameras(false);
+    }
+  };
+
   const startScanner = async () => {
     setError(null);
     setScanning(true);
 
     try {
+      const cameraId = selectedCameraId || (await loadCameras());
+
+      if (!cameraId) {
+        setScanning(false);
+        return;
+      }
+
+      window.localStorage.setItem(LAST_CAMERA_KEY, cameraId);
+
       const scanner = new Html5Qrcode("scanner-element");
       scannerRef.current = scanner;
 
       await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        cameraId,
+        {
+          fps: 15,
+          aspectRatio: 1.777778,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const size = Math.floor(
+              Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.82, 340)
+            );
+            const safeSize = Math.max(size, 180);
+            return { width: safeSize, height: safeSize };
+          },
+        },
         (decodedText) => {
           const token = extractQrToken(decodedText);
 
@@ -54,7 +125,7 @@ function ScannerContent() {
         () => {}
       );
     } catch {
-      setError("No se pudo acceder a la cámara. Permite el acceso e intenta de nuevo.");
+      setError("No se pudo acceder a la cámara. Prueba otra cámara o revisa los permisos.");
       setScanning(false);
     }
   };
@@ -65,6 +136,11 @@ function ScannerContent() {
       scannerRef.current = null;
     }
     setScanning(false);
+  };
+
+  const handleCameraChange = (cameraId: string) => {
+    setSelectedCameraId(cameraId);
+    window.localStorage.setItem(LAST_CAMERA_KEY, cameraId);
   };
 
   return (
@@ -83,7 +159,7 @@ function ScannerContent() {
 
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         {!scanning ? (
-          <div className="text-center space-y-6">
+          <div className="w-full max-w-sm text-center space-y-5">
             <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
                 <path d="M3 7V5a2 2 0 012-2h2" /><path d="M17 3h2a2 2 0 012 2v2" /><path d="M21 17v2a2 2 0 01-2 2h-2" /><path d="M7 21H5a2 2 0 01-2-2v-2" /><rect x="7" y="7" width="10" height="10" rx="2" />
@@ -92,9 +168,32 @@ function ScannerContent() {
             <p className="text-muted-foreground">
               Escanea el código QR de la pulsera del socio
             </p>
+            <div className="space-y-3">
+              <button
+                onClick={loadCameras}
+                disabled={loadingCameras}
+                className="w-full py-2.5 px-5 border border-border rounded-xl font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {loadingCameras ? "Buscando cámaras..." : "Elegir cámara"}
+              </button>
+              {cameras.length > 0 && (
+                <select
+                  value={selectedCameraId}
+                  onChange={(event) => handleCameraChange(event.target.value)}
+                  className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  {cameras.map((camera) => (
+                    <option key={camera.id} value={camera.id}>
+                      {camera.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <button
               onClick={startScanner}
-              className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity"
+              disabled={loadingCameras}
+              className="py-3 px-8 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               Activar Cámara
             </button>
@@ -105,6 +204,9 @@ function ScannerContent() {
         ) : (
           <div className="w-full max-w-sm space-y-4">
             <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
+            <p className="text-xs text-muted-foreground text-center">
+              Si no lee la pulsera, prueba otra cámara y acerca o aleja despacio hasta que enfoque.
+            </p>
             {error && (
               <p className="text-destructive text-sm text-center">{error}</p>
             )}
