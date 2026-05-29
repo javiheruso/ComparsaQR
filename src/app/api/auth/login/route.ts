@@ -1,5 +1,12 @@
 import { login } from "@/lib/auth";
 
+function shouldUseSecureCookie(request: Request) {
+  const forwardedProtocol = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProtocol ?? new URL(request.url).protocol.replace(":", "");
+
+  return protocol === "https";
+}
+
 export async function POST(request: Request) {
   try {
     const { password } = await request.json();
@@ -11,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const success = await login(password);
+    const success = await login(password, shouldUseSecureCookie(request));
 
     if (!success) {
       return Response.json(
