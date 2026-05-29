@@ -1,9 +1,14 @@
 import { db } from "@/lib/db";
+import { hasScannerAccess } from "@/lib/auth";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  if (!(await hasScannerAccess())) {
+    return Response.json({ error: "Dispositivo no verificado" }, { status: 401 });
+  }
+
   const { token } = await params;
   const qrToken = token.trim();
 

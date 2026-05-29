@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { formatEuro } from "@/lib/utils";
 import { extractQrToken } from "@/lib/qr";
+import { ScannerAccessGate } from "../ScannerAccessGate";
 import { Plus, Minus, ShoppingCart, Wallet } from "lucide-react";
 
 interface SocioData {
@@ -595,7 +596,9 @@ export default function ScannerResultPage() {
           </div>
         }
       >
-        <ScannerResultContent />
+        <ScannerAccessGate>
+          <ScannerResultContent />
+        </ScannerAccessGate>
       </Suspense>
     </main>
   );

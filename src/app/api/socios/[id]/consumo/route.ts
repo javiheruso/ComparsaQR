@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { hasScannerAccess } from "@/lib/auth";
 import { z } from "zod";
 
 const consumoSchema = z.object({
@@ -17,6 +18,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await hasScannerAccess())) {
+    return Response.json({ error: "Dispositivo no verificado" }, { status: 401 });
+  }
+
   const { id } = await params;
   const socioId = parseInt(id);
 

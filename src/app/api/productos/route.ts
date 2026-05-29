@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, hasScannerAccess } from "@/lib/auth";
 import { z } from "zod";
 
 const productoSchema = z.object({
@@ -9,6 +9,10 @@ const productoSchema = z.object({
 });
 
 export async function GET() {
+  if (!(await hasScannerAccess())) {
+    return Response.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const productos = await db.producto.findMany({
     orderBy: { nombre: "asc" },
   });

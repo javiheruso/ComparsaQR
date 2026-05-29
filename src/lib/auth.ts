@@ -5,6 +5,7 @@ import { createHash, timingSafeEqual } from "crypto";
 
 export interface SessionData {
   isLoggedIn: boolean;
+  scannerVerified: boolean;
 }
 
 function getSessionOptions(secureCookie = process.env.NODE_ENV === "production") {
@@ -26,7 +27,7 @@ function secureCompare(value: string, expected: string): boolean {
   return timingSafeEqual(valueHash, expectedHash);
 }
 
-async function verifyAdminPassword(password: string, expected: string): Promise<boolean> {
+export async function verifyPassword(password: string, expected: string): Promise<boolean> {
   if (expected.startsWith("$2a$") || expected.startsWith("$2b$") || expected.startsWith("$2y$")) {
     return bcrypt.compare(password, expected);
   }
@@ -41,6 +42,9 @@ export async function getSession() {
   if (!session.isLoggedIn) {
     session.isLoggedIn = false;
   }
+  if (!session.scannerVerified) {
+    session.scannerVerified = false;
+  }
 
   return session;
 }
@@ -49,7 +53,7 @@ export async function login(password: string, secureCookie?: boolean): Promise<b
   const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) return false;
 
-  const isValid = await verifyAdminPassword(password, adminPassword);
+  const isValid = await verifyPassword(password, adminPassword);
 
   if (isValid) {
     const cookieStore = await cookies();
@@ -65,4 +69,25 @@ export async function logout(secureCookie?: boolean) {
   const cookieStore = await cookies();
   const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
   session.destroy();
+}
+
+export async function verifyScannerDevice(password: string, secureCookie?: boolean): Promise<boolean> {
+  const scannerPassword = process.env.SCANNER_PASSWORD || process.env.ADMIN_PASSWORD;
+  if (!scannerPassword) return false;
+
+  const isValid = await verifyPassword(password, scannerPassword);
+
+  if (isValid) {
+    const cookieStore = await cookies();
+    const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
+    session.scannerVerified = true;
+    await session.save();
+  }
+
+  return isValid;
+}
+
+export async function hasScannerAccess(): Promise<boolean> {
+  const session = await getSession();
+  return Boolean(session.isLoggedIn || session.scannerVerified);
 }

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter, useSearchParams } from "next/navigation";
 import { extractQrToken } from "@/lib/qr";
+import { ScannerAccessGate } from "./ScannerAccessGate";
 
 interface CameraDevice {
   id: string;
@@ -305,7 +306,9 @@ export default function ScannerPage() {
         </main>
       }
     >
-      <ScannerContent />
+      <ScannerAccessGate>
+        <ScannerContent />
+      </ScannerAccessGate>
     </Suspense>
   );
 }
