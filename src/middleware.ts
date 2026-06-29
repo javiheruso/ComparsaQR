@@ -5,10 +5,11 @@ export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("comparsa_admin_session");
 
-  // Allow access to login page, API auth routes, scanner, and static files
+  // Allow access to login page, API auth routes, heartbeat, scanner, and static files
   if (
     pathname === "/admin/login" ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/heartbeat" ||
     pathname === "/scanner" ||
     pathname.startsWith("/scanner/") ||
     pathname.startsWith("/_next") ||

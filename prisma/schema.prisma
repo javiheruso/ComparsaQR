@@ -28,6 +28,12 @@ model Producto {
   updatedAt DateTime @updatedAt
 }
 
+model Heartbeat {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  timestamp DateTime @default(now())
+}
+
 model Transaccion {
   id          Int      @id @default(autoincrement())
   socioId     Int

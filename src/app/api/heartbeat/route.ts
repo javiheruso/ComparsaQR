@@ -4,8 +4,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Simple query to keep the database alive
-    await db.$queryRaw`SELECT 1`;
+    await db.heartbeat.upsert({
+      where: { key: "singleton" },
+      update: { timestamp: new Date() },
+      create: { key: "singleton" },
+    });
     return Response.json({
       status: "ok",
       timestamp: new Date().toISOString(),
