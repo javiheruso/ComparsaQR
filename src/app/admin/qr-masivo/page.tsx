@@ -8,6 +8,7 @@ interface Socio {
   numeroSocio: string;
   nombre: string;
   apellido1: string | null;
+  apellido2: string | null;
   qrToken: string;
 }
 
