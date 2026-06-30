@@ -12,6 +12,7 @@ interface Socio {
   nombre: string;
   apellido1: string | null;
   apellido2: string | null;
+  dni: string | null;
   tipoVinculacion: string;
   fechaNacimiento: string | null;
   credito: number;

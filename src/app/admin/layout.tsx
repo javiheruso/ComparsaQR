@@ -66,6 +66,9 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/importar" onClick={() => setMenuOpen(false)}>
             Importar CSV
           </AdminNavLink>
+          <AdminNavLink href="/admin/importar-gestion" onClick={() => setMenuOpen(false)}>
+            Importar Gestión
+          </AdminNavLink>
           <AdminNavLink href="/admin/productos" onClick={() => setMenuOpen(false)}>
             Productos
           </AdminNavLink>
@@ -123,6 +126,9 @@ export default function AdminLayout({
           </AdminNavLink>
           <AdminNavLink href="/admin/importar" onClick={() => setMenuOpen(false)}>
             Importar CSV
+          </AdminNavLink>
+          <AdminNavLink href="/admin/importar-gestion" onClick={() => setMenuOpen(false)}>
+            Importar Gestión
           </AdminNavLink>
           <AdminNavLink href="/admin/productos" onClick={() => setMenuOpen(false)}>
             Productos

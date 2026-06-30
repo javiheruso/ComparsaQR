@@ -10,6 +10,7 @@ datasource db {
 model Socio {
   id               Int           @id @default(autoincrement())
   numeroSocio      String        @unique
+  dni              String?       @unique
   nombre           String
   apellido1        String?
   apellido2        String?
