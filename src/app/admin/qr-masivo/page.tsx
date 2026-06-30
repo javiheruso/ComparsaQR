@@ -9,6 +9,7 @@ interface Socio {
   nombre: string;
   apellido1: string | null;
   apellido2: string | null;
+  credito: number;
   qrToken: string;
 }
 
