@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       ? {
           OR: [
             { nombre: { contains: search, mode: "insensitive" as const } },
+            { apellido1: { contains: search, mode: "insensitive" as const } },
+            { apellido2: { contains: search, mode: "insensitive" as const } },
             { numeroSocio: { contains: search, mode: "insensitive" as const } },
           ],
         }

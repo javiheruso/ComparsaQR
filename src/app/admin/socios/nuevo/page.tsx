@@ -7,6 +7,8 @@ import { QRCodeSVG } from "qrcode.react";
 export default function NuevoSocioPage() {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
+  const [apellido1, setApellido1] = useState("");
+  const [apellido2, setApellido2] = useState("");
   const [credito, setCredito] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,8 @@ export default function NuevoSocioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre,
+          apellido1: apellido1 || undefined,
+          apellido2: apellido2 || undefined,
           credito: credito ? parseFloat(credito) : 0,
         }),
       });
@@ -78,6 +82,8 @@ export default function NuevoSocioPage() {
               onClick={() => {
                 setNuevoSocio(null);
                 setNombre("");
+                setApellido1("");
+                setApellido2("");
                 setCredito("");
               }}
               className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
@@ -109,6 +115,26 @@ export default function NuevoSocioPage() {
             onChange={(e) => setNombre(e.target.value)}
             className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Primer apellido</label>
+          <input
+            type="text"
+            value={apellido1}
+            onChange={(e) => setApellido1(e.target.value)}
+            className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Segundo apellido <span className="text-muted-foreground">(opcional)</span></label>
+          <input
+            type="text"
+            value={apellido2}
+            onChange={(e) => setApellido2(e.target.value)}
+            className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>
 

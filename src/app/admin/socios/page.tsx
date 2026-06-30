@@ -9,6 +9,8 @@ interface Socio {
   id: number;
   numeroSocio: string;
   nombre: string;
+  apellido1: string | null;
+  apellido2: string | null;
   credito: number;
   estadoPulsera: string;
   qrToken: string;
@@ -41,15 +43,16 @@ export default function SociosPage() {
     return () => clearTimeout(timer);
   }, [fetchSocios]);
 
-  const togglePulsera = async (id: number, nombre: string, estadoActual: string) => {
-    if (!confirm(`¿${estadoActual === "activa" ? "Desactivar" : "Activar"} la pulsera de ${nombre}?`)) return;
+  const togglePulsera = async (id: number, nombre: string, estadoActual: string, apellido1?: string, apellido2?: string) => {
+    const nombreCompleto = `${nombre}${apellido1 ? ` ${apellido1}` : ""}${apellido2 ? ` ${apellido2}` : ""}`;
+    if (!confirm(`¿${estadoActual === "activa" ? "Desactivar" : "Activar"} la pulsera de ${nombreCompleto}?`)) return;
     await fetch(`/api/socios/${id}/toggle-pulsera`, { method: "PATCH" });
     fetchSocios();
   };
 
   const exportarCSV = (socios: Socio[]) => {
-    const cabecera = "Nº Socio,Nombre,Crédito,Estado";
-    const filas = socios.map((s) => `${s.numeroSocio},"${s.nombre}",${s.credito},${s.estadoPulsera}`);
+    const cabecera = "Nº Socio,Nombre,Apellido1,Apellido2,Crédito,Estado";
+    const filas = socios.map((s) => `${s.numeroSocio},"${s.nombre}","${s.apellido1 ?? ""}","${s.apellido2 ?? ""}",${s.credito},${s.estadoPulsera}`);
     const csv = [cabecera, ...filas].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -89,7 +92,7 @@ export default function SociosPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o número de socio..."
+          placeholder="Buscar por nombre, apellido o nº de socio..."
           className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
         />
       </div>
@@ -118,7 +121,11 @@ export default function SociosPage() {
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{socio.nombre}</p>
+                    <p className="font-medium truncate">
+                      {socio.nombre}
+                      {socio.apellido1 ? ` ${socio.apellido1}` : ""}
+                      {socio.apellido2 ? ` ${socio.apellido2}` : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       #{socio.numeroSocio}
                     </p>
@@ -129,7 +136,7 @@ export default function SociosPage() {
                     {formatEuro(socio.credito)}
                   </span>
                   <button
-                    onClick={() => togglePulsera(socio.id, socio.nombre, socio.estadoPulsera)}
+                    onClick={() => togglePulsera(socio.id, socio.nombre, socio.estadoPulsera, socio.apellido1 ?? undefined, socio.apellido2 ?? undefined)}
                     className={`p-1.5 rounded-lg transition-colors ${
                       socio.estadoPulsera === "activa"
                         ? "text-green-600 hover:bg-green-100"
