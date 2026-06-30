@@ -70,7 +70,10 @@ export default function QrMasivoPage() {
       doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
       // ─── Datos a la derecha del QR ──────────────────
-      const apellido = socio.apellido1 ?? "";
+      const parts = socio.nombre.trim().split(/\s+/);
+      const quitar = socio.apellido2 ? 2 : socio.apellido1 ? 1 : 1;
+      const nombreLinea = parts.slice(0, parts.length - quitar).join(" ");
+      const apellidoLinea = socio.apellido1 ?? (parts.length >= 2 ? parts[parts.length - 1] : "");
       const textX = qrX + qrSize + 3; // 3mm de separación
       const lineH = 4.5; // altura de línea en mm
 
@@ -80,12 +83,12 @@ export default function QrMasivoPage() {
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text(socio.nombre, textX, y + 7 + lineH);
+      doc.text(nombreLinea, textX, y + 7 + lineH);
 
-      if (apellido) {
+      if (apellidoLinea) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
-        doc.text(apellido, textX, y + 7 + lineH * 2);
+        doc.text(apellidoLinea, textX, y + 7 + lineH * 2);
       }
 
       // ─── Borde sutil de recorte ─────────────────────
