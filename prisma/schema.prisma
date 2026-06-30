@@ -11,6 +11,8 @@ model Socio {
   id             Int           @id @default(autoincrement())
   numeroSocio    String        @unique
   nombre         String
+  apellido1      String?
+  apellido2      String?
   credito        Float         @default(0)
   estadoPulsera  String        @default("activa")
   qrToken        String        @unique @default(uuid())

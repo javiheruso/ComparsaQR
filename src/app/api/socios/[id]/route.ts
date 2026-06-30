@@ -39,6 +39,8 @@ export async function PUT(
     data: {
       nombre: body.nombre,
       numeroSocio: body.numeroSocio,
+      apellido1: body.apellido1 ?? null,
+      apellido2: body.apellido2 ?? null,
     },
   });
 

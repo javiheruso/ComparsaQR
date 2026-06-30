@@ -7,15 +7,8 @@ interface Socio {
   id: number;
   numeroSocio: string;
   nombre: string;
+  apellido1: string | null;
   qrToken: string;
-}
-
-/** Separa "Juan Pérez García" en { nombre: "Juan", apellido1: "Pérez" } */
-function parseNombre(fullName: string): { nombre: string; apellido1: string } {
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 0) return { nombre: "", apellido1: "" };
-  if (parts.length === 1) return { nombre: parts[0], apellido1: "" };
-  return { nombre: parts[0], apellido1: parts[parts.length - 1] };
 }
 
 export default function QrMasivoPage() {
@@ -77,7 +70,7 @@ export default function QrMasivoPage() {
       doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
       // ─── Datos a la derecha del QR ──────────────────
-      const { nombre, apellido1 } = parseNombre(socio.nombre);
+      const apellido = socio.apellido1 ?? "";
       const textX = qrX + qrSize + 3; // 3mm de separación
       const lineH = 4.5; // altura de línea en mm
 
@@ -87,11 +80,13 @@ export default function QrMasivoPage() {
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text(nombre, textX, y + 7 + lineH);
+      doc.text(socio.nombre, textX, y + 7 + lineH);
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.text(apellido1, textX, y + 7 + lineH * 2);
+      if (apellido) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.text(apellido, textX, y + 7 + lineH * 2);
+      }
 
       // ─── Borde sutil de recorte ─────────────────────
       doc.setDrawColor(200, 200, 200);

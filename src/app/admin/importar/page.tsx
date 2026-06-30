@@ -6,6 +6,8 @@ import Papa from "papaparse";
 
 interface CsvRow {
   nombre: string;
+  apellido1: string;
+  apellido2: string;
   credito_inicial: string;
 }
 
@@ -53,6 +55,8 @@ export default function ImportarPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             nombre: row.nombre,
+            apellido1: row.apellido1 || undefined,
+            apellido2: row.apellido2 || undefined,
             credito: row.credito_inicial
               ? parseFloat(row.credito_inicial)
               : 0,
@@ -84,14 +88,14 @@ export default function ImportarPage() {
         <h2 className="font-semibold">Formato del CSV</h2>
         <p className="text-sm text-muted-foreground">
           El archivo debe tener una cabecera con las columnas:{" "}
-          <code className="bg-muted px-1 rounded">nombre, credito_inicial</code>
+          <code className="bg-muted px-1 rounded">nombre, apellido1, apellido2, credito_inicial</code>
         </p>
         <p className="text-sm text-muted-foreground">
-          <code>credito_inicial</code> es opcional (por defecto 0). El número de socio se asigna automáticamente.
+          <code>apellido1</code> es obligatorio. <code>apellido2</code> y <code>credito_inicial</code> son opcionales.
         </p>
         <button
           onClick={() => {
-            const csv = "nombre,credito_inicial\nEjemplo Socio,10\n";
+            const csv = "nombre,apellido1,apellido2,credito_inicial\nEjemplo,Apellido,,10\n";
             const blob = new Blob([csv], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -125,6 +129,8 @@ export default function ImportarPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-3 py-2">Nombre</th>
+                  <th className="text-left px-3 py-2">Apellido1</th>
+                  <th className="text-left px-3 py-2">Apellido2</th>
                   <th className="text-right px-3 py-2">Crédito Inicial</th>
                 </tr>
               </thead>
@@ -132,6 +138,8 @@ export default function ImportarPage() {
                 {data.slice(0, 20).map((row, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2">{row.nombre}</td>
+                    <td className="px-3 py-2">{row.apellido1 || "-"}</td>
+                    <td className="px-3 py-2">{row.apellido2 || "-"}</td>
                     <td className="px-3 py-2 text-right">
                       {row.credito_inicial || "0"}€
                     </td>

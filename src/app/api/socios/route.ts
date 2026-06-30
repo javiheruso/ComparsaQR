@@ -5,6 +5,8 @@ import { z } from "zod";
 
 const createSocioSchema = z.object({
   nombre: z.string().min(1).max(100),
+  apellido1: z.string().max(100).optional(),
+  apellido2: z.string().max(100).optional(),
   credito: z.number().min(0).default(0),
 });
 
@@ -76,6 +78,8 @@ export async function POST(request: Request) {
       data: {
         numeroSocio,
         nombre: data.nombre,
+        apellido1: data.apellido1 ?? null,
+        apellido2: data.apellido2 ?? null,
         credito: data.credito,
       },
     });

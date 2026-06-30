@@ -288,10 +288,14 @@ function ScannerResultContent() {
 
         {/* Banner de pulsera inactiva */}
         {pulseraInactiva ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <p className="text-red-700 font-semibold text-lg">Pulsera Desactivada</p>
-            <p className="text-red-600 text-sm mt-1">
-              Esta pulsera ha sido desactivada. Contacta con administración.
+          <div className={`${socio.estadoPulsera === "perdida" ? "bg-orange-50 border-orange-200" : "bg-red-50 border-red-200"} border rounded-xl p-6 text-center`}>
+            <p className={`font-semibold text-lg ${socio.estadoPulsera === "perdida" ? "text-orange-700" : "text-red-700"}`}>
+              Pulsera {socio.estadoPulsera === "perdida" ? "Perdida" : "Desactivada"}
+            </p>
+            <p className={`text-sm mt-1 ${socio.estadoPulsera === "perdida" ? "text-orange-600" : "text-red-600"}`}>
+              {socio.estadoPulsera === "perdida"
+                ? "Esta pulsera fue reportada como perdida. Solicita un nuevo código."
+                : "Esta pulsera ha sido desactivada. Contacta con administración."}
             </p>
           </div>
         ) : (
