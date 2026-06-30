@@ -72,8 +72,9 @@ export default function QrMasivoPage() {
 
       // ─── Datos a la derecha del QR ──────────────────
       const parts = socio.nombre.trim().split(/\s+/);
-      const quitar = socio.apellido2 ? 2 : socio.apellido1 ? 1 : 1;
-      const nombreLinea = parts.slice(0, parts.length - quitar).join(" ");
+      const nombreLinea = socio.apellido1
+        ? socio.nombre
+        : parts.slice(0, -1).join(" ");
       const apellidoLinea = socio.apellido1 ?? (parts.length >= 2 ? parts[parts.length - 1] : "");
       const textX = qrX + qrSize + 3; // 3mm de separación
       const lineH = 4.5; // altura de línea en mm
