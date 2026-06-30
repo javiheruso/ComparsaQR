@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
-import { Search, Plus, Check, X, Download } from "lucide-react";
+import { Search, Plus, Check, X, Download, RefreshCw } from "lucide-react";
 
 interface Socio {
   id: number;
@@ -25,6 +25,8 @@ export default function SociosPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [exportando, setExportando] = useState(false);
+  const [recalculando, setRecalculando] = useState(false);
+  const [recalcResultado, setRecalcResultado] = useState<string | null>(null);
 
   const fetchSocios = useCallback(async (pagina?: number) => {
     setLoading(true);
@@ -63,6 +65,23 @@ export default function SociosPage() {
     fetchSocios();
   };
 
+  const recalcularEdades = async () => {
+    if (!confirm("¿Recalcular edades? Los socios menores con 18+ se reclasificarán automáticamente.")) return;
+    setRecalculando(true);
+    setRecalcResultado(null);
+    try {
+      const res = await fetch("/api/socios/recalcular-edades", { method: "POST" });
+      const data = await res.json();
+      setRecalcResultado(`${data.total} socio(s) reclasificado(s)`);
+      fetchSocios();
+    } catch {
+      setRecalcResultado("Error al recalcular");
+    } finally {
+      setRecalculando(false);
+      setTimeout(() => setRecalcResultado(null), 4000);
+    }
+  };
+
   const exportarCSV = async (todos: boolean) => {
     if (todos) setExportando(true);
     try {
@@ -94,6 +113,15 @@ export default function SociosPage() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Socios</h1>
         <div className="flex gap-2">
+          <button
+            onClick={recalcularEdades}
+            disabled={recalculando}
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+            title="Recalcular edades"
+          >
+            <RefreshCw className={`w-4 h-4 ${recalculando ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Edades</span>
+          </button>
           <div className="relative group">
             <button
               disabled={exportando}
@@ -127,6 +155,12 @@ export default function SociosPage() {
           </Link>
         </div>
       </div>
+
+      {recalcResultado && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+          <p className="text-blue-700 text-sm font-medium">{recalcResultado}</p>
+        </div>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

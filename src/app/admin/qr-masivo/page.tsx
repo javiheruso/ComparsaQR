@@ -19,7 +19,7 @@ export default function QrMasivoPage() {
   useEffect(() => {
     fetch("/api/socios?limit=500")
       .then((r) => r.json())
-      .then((data) => setSocios(data.socios ?? []))
+      .then((data) => setSocios((data.socios ?? []).filter((s: Socio) => s.credito > 0)))
       .catch(() => setSocios([]))
       .finally(() => setLoading(false));
   }, []);

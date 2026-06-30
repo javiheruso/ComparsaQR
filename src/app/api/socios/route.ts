@@ -7,6 +7,8 @@ const createSocioSchema = z.object({
   nombre: z.string().min(1).max(100),
   apellido1: z.string().max(100).optional(),
   apellido2: z.string().max(100).optional(),
+  tipoVinculacion: z.string().optional(),
+  fechaNacimiento: z.string().datetime().optional().nullable(),
   credito: z.number().min(0).default(0),
 });
 
@@ -34,6 +36,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const search = searchParams.get("search") || "";
   const estado = searchParams.get("estado") || "";
+  const tipo = searchParams.get("tipo") || "";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
   const skip = (page - 1) * limit;
@@ -50,6 +53,7 @@ export async function GET(request: NextRequest) {
         }
       : {}),
     ...(estado ? { estadoPulsera: estado } : {}),
+    ...(tipo ? { tipoVinculacion: tipo } : {}),
   };
 
   const [socios, total] = await Promise.all([
@@ -82,6 +86,8 @@ export async function POST(request: Request) {
         nombre: data.nombre,
         apellido1: data.apellido1 ?? null,
         apellido2: data.apellido2 ?? null,
+        tipoVinculacion: data.tipoVinculacion ?? "socio",
+        fechaNacimiento: data.fechaNacimiento ? new Date(data.fechaNacimiento) : null,
         credito: data.credito,
       },
     });

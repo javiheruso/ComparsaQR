@@ -9,6 +9,8 @@ export default function NuevoSocioPage() {
   const [nombre, setNombre] = useState("");
   const [apellido1, setApellido1] = useState("");
   const [apellido2, setApellido2] = useState("");
+  const [tipo, setTipo] = useState("socio");
+  const [fechaNac, setFechaNac] = useState("");
   const [credito, setCredito] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,8 @@ export default function NuevoSocioPage() {
           nombre,
           apellido1: apellido1 || undefined,
           apellido2: apellido2 || undefined,
+          tipoVinculacion: tipo,
+          fechaNacimiento: fechaNac ? new Date(fechaNac).toISOString() : null,
           credito: credito ? parseFloat(credito) : 0,
         }),
       });
@@ -84,6 +88,8 @@ export default function NuevoSocioPage() {
                 setNombre("");
                 setApellido1("");
                 setApellido2("");
+                setTipo("socio");
+                setFechaNac("");
                 setCredito("");
               }}
               className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
@@ -135,6 +141,30 @@ export default function NuevoSocioPage() {
             value={apellido2}
             onChange={(e) => setApellido2(e.target.value)}
             className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Tipo de vinculación</label>
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="socio">Socio</option>
+            <option value="hijos_mayores">Hijo mayor</option>
+            <option value="socios_menores">Socio menor</option>
+            <option value="hijo_socio">Hijo de socio</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Fecha de nacimiento <span className="text-muted-foreground">(opcional)</span></label>
+          <input
+            type="date"
+            value={fechaNac}
+            onChange={(e) => setFechaNac(e.target.value)}
+            className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 

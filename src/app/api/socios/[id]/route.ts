@@ -41,6 +41,8 @@ export async function PUT(
       numeroSocio: body.numeroSocio,
       apellido1: body.apellido1 ?? null,
       apellido2: body.apellido2 ?? null,
+      tipoVinculacion: body.tipoVinculacion ?? null,
+      fechaNacimiento: body.fechaNacimiento ? new Date(body.fechaNacimiento) : body.fechaNacimiento === null ? null : undefined,
     },
   });
 

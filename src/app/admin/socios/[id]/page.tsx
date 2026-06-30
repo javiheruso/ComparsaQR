@@ -12,6 +12,8 @@ interface Socio {
   nombre: string;
   apellido1: string | null;
   apellido2: string | null;
+  tipoVinculacion: string;
+  fechaNacimiento: string | null;
   credito: number;
   estadoPulsera: string;
   qrToken: string;
@@ -36,6 +38,8 @@ export default function SocioDetailPage() {
   const [editNombre, setEditNombre] = useState("");
   const [editApellido1, setEditApellido1] = useState("");
   const [editApellido2, setEditApellido2] = useState("");
+  const [editTipo, setEditTipo] = useState("");
+  const [editFechaNac, setEditFechaNac] = useState("");
   const [editando, setEditando] = useState(false);
 
   useEffect(() => {
@@ -108,6 +112,8 @@ export default function SocioDetailPage() {
         numeroSocio: socio.numeroSocio,
         apellido1: editApellido1 || null,
         apellido2: editApellido2 || null,
+        tipoVinculacion: editTipo || null,
+        fechaNacimiento: editFechaNac ? new Date(editFechaNac).toISOString() : null,
       }),
     });
     if (res.ok) {
@@ -175,6 +181,22 @@ export default function SocioDetailPage() {
                   placeholder="Segundo apellido (opcional)"
                   className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
+                <select
+                  value={editTipo}
+                  onChange={(e) => setEditTipo(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="socio">Socio</option>
+                  <option value="hijos_mayores">Hijo mayor</option>
+                  <option value="socios_menores">Socio menor</option>
+                  <option value="hijo_socio">Hijo de socio</option>
+                </select>
+                <input
+                  type="date"
+                  value={editFechaNac}
+                  onChange={(e) => setEditFechaNac(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
               </div>
             ) : (
               <>
@@ -182,9 +204,19 @@ export default function SocioDetailPage() {
                 {socio.apellido1 && (
                   <p className="text-muted-foreground text-sm">{socio.apellido1}{socio.apellido2 ? ` ${socio.apellido2}` : ""}</p>
                 )}
+                <div className="flex gap-3 mt-1">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
+                    {socio.tipoVinculacion.replace("_", " ")}
+                  </span>
+                  {socio.fechaNacimiento && (
+                    <span className="text-xs text-muted-foreground">
+                                      {new Date(socio.fechaNacimiento).toLocaleDateString("es-ES")}
+                    </span>
+                  )}
+                </div>
               </>
             )}
-            <p className="text-muted-foreground">#{socio.numeroSocio}</p>
+            <p className="text-muted-foreground mt-1">#{socio.numeroSocio}</p>
           </div>
           <span
             className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
@@ -232,6 +264,8 @@ export default function SocioDetailPage() {
                   setEditNombre(socio.nombre);
                   setEditApellido1(socio.apellido1 ?? "");
                   setEditApellido2(socio.apellido2 ?? "");
+                  setEditTipo(socio.tipoVinculacion);
+                  setEditFechaNac(socio.fechaNacimiento ? socio.fechaNacimiento.split("T")[0] : "");
                   setEditando(true);
                 }}
                 className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
