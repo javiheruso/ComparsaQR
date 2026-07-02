@@ -13,6 +13,7 @@ interface Punto {
 export default function PuntosPage() {
   const [puntos, setPuntos] = useState<Punto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editPunto, setEditPunto] = useState<Punto | null>(null);
   const [nombre, setNombre] = useState("");
@@ -21,11 +22,20 @@ export default function PuntosPage() {
 
   const fetchPuntos = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/puntos");
-      setPuntos(await res.json());
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Error al cargar puntos");
+        setPuntos([]);
+        return;
+      }
+      const data = await res.json();
+      setPuntos(Array.isArray(data) ? data : []);
     } catch {
       setPuntos([]);
+      setError("Error de conexión");
     } finally {
       setLoading(false);
     }
@@ -166,6 +176,8 @@ export default function PuntosPage() {
       <div className="bg-white border border-border rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">Cargando...</div>
+        ) : error ? (
+          <div className="p-8 text-center text-red-600">{error}</div>
         ) : puntos.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             No hay puntos de venta. Crea el primero.
