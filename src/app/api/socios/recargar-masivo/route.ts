@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getSession, getOperador } from "@/lib/auth";
+import { getSession, getOperador, getPuntoVentaId } from "@/lib/auth";
 import { recargaMasivaSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
             cantidad: data.cantidad,
             descripcion: data.descripcion || `Recarga masiva: ${data.tipoVinculacion}`,
             operador: await getOperador(),
+            puntoVentaId: await getPuntoVentaId(),
           },
         }),
       ]);

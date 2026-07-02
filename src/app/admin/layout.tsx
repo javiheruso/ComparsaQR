@@ -69,6 +69,9 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/productos" onClick={() => setMenuOpen(false)}>
             Productos
           </AdminNavLink>
+          <AdminNavLink href="/admin/puntos" onClick={() => setMenuOpen(false)}>
+            Puntos
+          </AdminNavLink>
           <AdminNavLink href="/admin/qr-masivo" onClick={() => setMenuOpen(false)}>
             QR Masivo
           </AdminNavLink>
@@ -126,6 +129,9 @@ export default function AdminLayout({
           </AdminNavLink>
           <AdminNavLink href="/admin/productos" onClick={() => setMenuOpen(false)}>
             Productos
+          </AdminNavLink>
+          <AdminNavLink href="/admin/puntos" onClick={() => setMenuOpen(false)}>
+            Puntos
           </AdminNavLink>
           <AdminNavLink href="/admin/qr-masivo" onClick={() => setMenuOpen(false)}>
             QR Masivo

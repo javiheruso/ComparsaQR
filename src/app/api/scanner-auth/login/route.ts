@@ -1,4 +1,4 @@
-import { verifyScannerDevice } from "@/lib/auth";
+import { login } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess } from "@/lib/api-error";
 
@@ -23,13 +23,13 @@ export async function POST(request: Request) {
       return apiError("Clave requerida", 400);
     }
 
-    const success = await verifyScannerDevice(password, shouldUseSecureCookie(request));
+    const tipo = await login(password, shouldUseSecureCookie(request));
 
-    if (!success) {
+    if (!tipo) {
       return apiError("Clave incorrecta", 401);
     }
 
-    return apiSuccess({ success: true });
+    return apiSuccess({ success: true, tipo });
   } catch {
     return apiError("Error interno", 500);
   }

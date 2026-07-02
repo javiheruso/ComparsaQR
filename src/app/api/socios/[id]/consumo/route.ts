@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { hasScannerAccess } from "@/lib/auth";
+import { hasScannerAccess, getPuntoPermiso, getOperador, getPuntoVentaId } from "@/lib/auth";
 import { consumoSchema } from "@/lib/schemas";
 import { apiError, apiSuccess } from "@/lib/api-error";
 import { isGuestId, chargeGuest, getGuestProfile, GUEST_ID_CONST } from "@/lib/guest-store";
@@ -10,6 +10,11 @@ export async function POST(
 ) {
   if (!(await hasScannerAccess())) {
     return apiError("Dispositivo no verificado", 401);
+  }
+
+  const permiso = await getPuntoPermiso();
+  if (permiso && permiso !== "admin" && permiso !== "barra") {
+    return apiError("Este punto no tiene permiso para cobrar", 403);
   }
 
   const { id } = await params;
@@ -109,7 +114,8 @@ export async function POST(
         tipo: "consumo" as const,
         cantidad: total,
         descripcion,
-        operador: "admin",
+        operador: await getOperador(),
+        puntoVentaId: await getPuntoVentaId(),
       },
     });
 

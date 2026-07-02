@@ -44,6 +44,24 @@ function ScannerResultContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [verificando, setVerificando] = useState(false);
   const [showPasswordCarga, setShowPasswordCarga] = useState(false);
+  const [permiso, setPermiso] = useState<string | null>(null);
+  const [puntoNombre, setPuntoNombre] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/scanner-auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.verified) {
+          setPermiso(data.permiso ?? null);
+          setPuntoNombre(data.puntoNombre ?? null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const puedeRecargar = permiso === null || permiso === "admin" || permiso === "caja";
+  const puedeCobrar = permiso === null || permiso === "admin" || permiso === "barra";
+  const puedeVerProductos = permiso === null || permiso === "admin" || permiso === "barra";
 
   useEffect(() => {
     if (!token) return;
@@ -271,17 +289,19 @@ function ScannerResultContent() {
           <div className="text-right flex-shrink-0">
             <div className="flex items-center gap-1 justify-end">
               <p className="text-xs text-muted-foreground">Crédito</p>
-              <button
-                onClick={() => {
-                  setAuthError(null);
-                  setPasswordCarga("");
-                  setMostrarAuth(true);
-                }}
-                className="text-primary hover:opacity-80 transition-opacity"
-                title="Cargar saldo"
-              >
-                <Wallet className="w-4 h-4" />
-              </button>
+              {puedeRecargar && (
+                <button
+                  onClick={() => {
+                    setAuthError(null);
+                    setPasswordCarga("");
+                    setMostrarAuth(true);
+                  }}
+                  className="text-primary hover:opacity-80 transition-opacity"
+                  title="Cargar saldo"
+                >
+                  <Wallet className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <p className="text-xl font-bold">{formatEuro(socio.credito)}</p>
           </div>
@@ -314,8 +334,11 @@ function ScannerResultContent() {
               </div>
             )}
 
-            {/* Productos */}
-            {productos.length === 0 ? (
+            {!puedeVerProductos ? (
+              <div className="bg-white border border-border rounded-xl p-6 text-center text-muted-foreground">
+                Este punto solo puede recargar saldo, no cobrar.
+              </div>
+            ) : productos.length === 0 ? (
               <div className="bg-white border border-border rounded-xl p-6 text-center text-muted-foreground">
                 No hay productos disponibles
               </div>
@@ -380,7 +403,7 @@ function ScannerResultContent() {
       </div>
 
       {/* ─── Barra inferior fija: cobrar ───────────────── */}
-      {!pulseraInactiva && totalItems > 0 && (
+      {!pulseraInactiva && totalItems > 0 && puedeCobrar && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border p-4 shadow-lg z-40">
           <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">

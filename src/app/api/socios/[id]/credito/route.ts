@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getSession, getOperador } from "@/lib/auth";
+import { getSession, getOperador, getPuntoPermiso, getPuntoVentaId } from "@/lib/auth";
 import { creditoSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
@@ -10,6 +10,11 @@ export async function POST(
   const session = await getSession();
   if (!session.isLoggedIn) {
     return apiError("No autorizado", 401);
+  }
+
+  const permiso = await getPuntoPermiso();
+  if (permiso && permiso !== "admin" && permiso !== "caja") {
+    return apiError("Este punto no tiene permiso para recargar", 403);
   }
 
   try {
@@ -35,6 +40,7 @@ export async function POST(
           cantidad,
           descripcion: descripcion ?? null,
           operador: await getOperador(),
+          puntoVentaId: await getPuntoVentaId(),
         },
       }),
     ]);
