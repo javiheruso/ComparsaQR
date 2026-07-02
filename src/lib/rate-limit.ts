@@ -2,7 +2,7 @@ const rateMap = new Map<string, { count: number; resetAt: number }>();
 
 export function checkRateLimit(
   key: string,
-  maxAttempts = 5,
+  maxAttempts = 10,
   windowMs = 60_000
 ): { allowed: boolean; remaining: number } {
   const now = Date.now();

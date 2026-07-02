@@ -24,7 +24,8 @@ export default function LoginPage() {
       if (res.ok) {
         window.location.href = "/admin";
       } else {
-        setError("Contraseña incorrecta");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Contraseña incorrecta");
       }
     } catch {
       setError("Error de conexión");

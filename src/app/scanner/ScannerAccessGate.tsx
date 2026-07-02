@@ -47,7 +47,8 @@ export function ScannerAccessGate({ children }: ScannerAccessGateProps) {
       });
 
       if (!res.ok) {
-        setError("Clave incorrecta");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Clave incorrecta");
         return;
       }
 
