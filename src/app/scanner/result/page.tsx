@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { formatEuro } from "@/lib/utils";
 import { extractQrToken } from "@/lib/qr";
 import { ScannerAccessGate } from "../ScannerAccessGate";
-import { Plus, Minus, ShoppingCart, Wallet } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Wallet, Eye, EyeOff } from "lucide-react";
 
 interface SocioData {
   id: number;
@@ -43,6 +43,7 @@ function ScannerResultContent() {
   const [passwordCarga, setPasswordCarga] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [verificando, setVerificando] = useState(false);
+  const [showPasswordCarga, setShowPasswordCarga] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -476,9 +477,9 @@ function ScannerResultContent() {
               Introduce la contraseña de administrador para poder cargar crédito.
             </p>
 
-            <div>
+            <div className="relative">
               <input
-                type="password"
+                type={showPasswordCarga ? "text" : "password"}
                 value={passwordCarga}
                 onChange={(e) => {
                   setPasswordCarga(e.target.value);
@@ -489,8 +490,16 @@ function ScannerResultContent() {
                 }}
                 placeholder="Contraseña"
                 autoFocus
-                className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full px-4 py-3 pr-12 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setShowPasswordCarga((v) => !v)}
+                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showPasswordCarga ? "Ocultar" : "Mostrar"}
+              >
+                {showPasswordCarga ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
 
             {authError && (

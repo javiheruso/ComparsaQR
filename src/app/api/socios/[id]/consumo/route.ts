@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
-import { hasScannerAccess, getOperador } from "@/lib/auth";
+import { hasScannerAccess } from "@/lib/auth";
 import { consumoSchema } from "@/lib/schemas";
 import { apiError, apiSuccess } from "@/lib/api-error";
+import { isGuestId, chargeGuest, getGuestProfile, GUEST_ID_CONST } from "@/lib/guest-store";
 
 export async function POST(
   request: Request,
@@ -25,18 +26,6 @@ export async function POST(
     return apiError("Datos de consumo no válidos", 400, parsed.error.issues);
   }
 
-  const socio = await db.socio.findUnique({
-    where: { id: socioId },
-  });
-
-  if (!socio) {
-    return apiError("Socio no encontrado", 404);
-  }
-
-  if (socio.estadoPulsera !== "activa") {
-    return apiError("Pulsera desactivada", 403);
-  }
-
   const productoIds = parsed.data.items.map((item) => item.productoId);
   const productos = await db.producto.findMany({
     where: { id: { in: productoIds } },
@@ -57,16 +46,50 @@ export async function POST(
     return apiError("Importe no válido", 400);
   }
 
-  if (socio.credito < total) {
-    return apiError("Crédito insuficiente", 400, { creditoActual: socio.credito });
-  }
-
   const descripcion = parsed.data.items
     .map((item) => {
       const producto = productosPorId.get(item.productoId);
       return `${producto?.nombre} x${item.cantidad}`;
     })
     .join(", ");
+
+  // ─── Invitado: cobro en memoria ─────────────────────
+  if (isGuestId(socioId)) {
+    const guest = getGuestProfile();
+    if (guest.credito < total) {
+      return apiError("Crédito insuficiente", 400, { creditoActual: guest.credito });
+    }
+
+    const ok = chargeGuest(total);
+    if (!ok) {
+      return apiError("No se pudo completar el cobro.", 409);
+    }
+
+    return apiSuccess({
+      id: GUEST_ID_CONST,
+      nombre: "Invitado",
+      numeroSocio: "I-001",
+      credito: guest.credito - total,
+      estadoPulsera: "activa",
+    });
+  }
+
+  // ─── Socio normal: cobro en BD ──────────────────────
+  const socio = await db.socio.findUnique({
+    where: { id: socioId },
+  });
+
+  if (!socio) {
+    return apiError("Socio no encontrado", 404);
+  }
+
+  if (socio.estadoPulsera !== "activa") {
+    return apiError("Pulsera desactivada", 403);
+  }
+
+  if (socio.credito < total) {
+    return apiError("Crédito insuficiente", 400, { creditoActual: socio.credito });
+  }
 
   const updated = await db.$transaction(async (tx) => {
     const update = await tx.socio.updateMany({
@@ -86,7 +109,7 @@ export async function POST(
         tipo: "consumo" as const,
         cantidad: total,
         descripcion,
-        operador: await getOperador(),
+        operador: "admin",
       },
     });
 

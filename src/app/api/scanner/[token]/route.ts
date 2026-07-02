@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { hasScannerAccess } from "@/lib/auth";
 import { apiError, apiSuccess } from "@/lib/api-error";
+import { isGuestToken, getGuestProfile } from "@/lib/guest-store";
 
 export async function GET(
   _request: Request,
@@ -15,6 +16,10 @@ export async function GET(
 
   if (!qrToken || qrToken.length > 200) {
     return apiError("QR no válido", 400);
+  }
+
+  if (isGuestToken(qrToken)) {
+    return apiSuccess(getGuestProfile());
   }
 
   const socio = await db.socio.findUnique({

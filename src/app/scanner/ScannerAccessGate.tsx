@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 interface ScannerAccessGateProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ export function ScannerAccessGate({ children }: ScannerAccessGateProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,17 +81,27 @@ export function ScannerAccessGate({ children }: ScannerAccessGateProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              setError(null);
-            }}
-            placeholder="Clave del scanner"
-            className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-            autoFocus
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setError(null);
+              }}
+              placeholder="Clave del scanner"
+              className="w-full px-4 py-3 pr-12 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={showPassword ? "Ocultar" : "Mostrar"}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
 
           {error && (
             <p className="text-destructive text-sm text-center">{error}</p>
