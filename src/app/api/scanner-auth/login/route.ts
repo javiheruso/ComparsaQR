@@ -2,6 +2,13 @@ import { verifyScannerDevice } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess } from "@/lib/api-error";
 
+function shouldUseSecureCookie(request: Request) {
+  const forwardedProtocol = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProtocol ?? new URL(request.url).protocol.replace(":", "");
+
+  return protocol === "https";
+}
+
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
@@ -16,7 +23,7 @@ export async function POST(request: Request) {
       return apiError("Clave requerida", 400);
     }
 
-    const success = await verifyScannerDevice(password);
+    const success = await verifyScannerDevice(password, shouldUseSecureCookie(request));
 
     if (!success) {
       return apiError("Clave incorrecta", 401);

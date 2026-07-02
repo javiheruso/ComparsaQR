@@ -1,6 +1,8 @@
 /**
  * Genera el QR de invitado como imagen PNG.
- * Uso: node scripts/generate-guest-qr.js
+ * Uso:
+ *   node scripts/generate-guest-qr.js                              (usa NEXT_PUBLIC_APP_URL del .env)
+ *   node scripts/generate-guest-qr.js --domain https://tudominio.com
  *
  * Lee GUEST_QR_TOKEN del .env y genera un PNG en temp/guest-qr.png
  */
@@ -16,7 +18,9 @@ async function main() {
     process.exit(1);
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const domainIndex = process.argv.indexOf("--domain");
+  const domain = domainIndex !== -1 ? process.argv[domainIndex + 1] : null;
+  const appUrl = domain || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const url = `${appUrl}/scanner/result?token=${token}`;
 
   const outDir = path.resolve(__dirname, "../temp");
