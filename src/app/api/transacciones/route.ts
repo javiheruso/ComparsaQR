@@ -13,6 +13,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     include: {
       socio: { select: { nombre: true, numeroSocio: true } },
+      puntoVenta: { select: { nombre: true } },
     },
   });
 

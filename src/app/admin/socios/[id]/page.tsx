@@ -26,6 +26,7 @@ interface Transaccion {
   cantidad: number;
   descripcion: string | null;
   createdAt: string;
+  puntoVenta: { nombre: string } | null;
 }
 
 export default function SocioDetailPage() {
@@ -376,6 +377,7 @@ export default function SocioDetailPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t.descripcion && <>{t.descripcion}<br /></>}
+                    {t.puntoVenta?.nombre && <>Punto: {t.puntoVenta.nombre}<br /></>}
                     {new Date(t.createdAt).toLocaleString("es-ES")}
                   </p>
                 </div>

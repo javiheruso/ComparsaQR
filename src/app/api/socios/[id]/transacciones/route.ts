@@ -16,6 +16,9 @@ export async function GET(
     where: { socioId: parseInt(id) },
     orderBy: { createdAt: "desc" },
     take: 100,
+    include: {
+      puntoVenta: { select: { nombre: true } },
+    },
   });
 
   return apiSuccess(transacciones);

@@ -12,6 +12,7 @@ interface Transaccion {
   descripcion: string | null;
   createdAt: string;
   socio: { nombre: string; numeroSocio: string };
+  puntoVenta: { nombre: string } | null;
 }
 
 export default function TransaccionesPage() {
@@ -41,9 +42,9 @@ export default function TransaccionesPage() {
   const filtradas = transacciones.filter(filtrarTransacciones);
 
   const exportarCSV = (lista: Transaccion[]) => {
-    const cabecera = "Nº Socio,Socio,Tipo,Cantidad,Concepto,Fecha";
+    const cabecera = "Nº Socio,Socio,Tipo,Cantidad,Concepto,Punto,Fecha";
     const filas = lista.map((t) =>
-      `${t.socio.numeroSocio},"${t.socio.nombre}",${t.tipo},${t.cantidad},"${t.descripcion ?? ""}",${new Date(t.createdAt).toISOString()}`
+      `${t.socio.numeroSocio},"${t.socio.nombre}",${t.tipo},${t.cantidad},"${t.descripcion ?? ""}","${t.puntoVenta?.nombre ?? ""}",${new Date(t.createdAt).toISOString()}`
     );
     const csv = [cabecera, ...filas].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -107,6 +108,7 @@ export default function TransaccionesPage() {
                   <th className="text-left px-4 py-3 font-medium">Socio</th>
                   <th className="text-left px-4 py-3 font-medium">Tipo</th>
                   <th className="text-left px-4 py-3 font-medium">Concepto</th>
+                  <th className="text-left px-4 py-3 font-medium">Punto</th>
                   <th className="text-right px-4 py-3 font-medium">Cantidad</th>
                   <th className="text-right px-4 py-3 font-medium">Fecha</th>
                 </tr>
@@ -133,6 +135,9 @@ export default function TransaccionesPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {t.descripcion ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {t.puntoVenta?.nombre ?? "-"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
