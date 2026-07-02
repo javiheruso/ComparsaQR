@@ -1,52 +1,34 @@
 import { db } from "@/lib/db";
-import { z } from "zod";
-
-const consumoSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        productoId: z.number().int().positive(),
-        cantidad: z.number().int().positive().max(99),
-      })
-    )
-    .min(1)
-    .max(50),
-});
+import { hasScannerAccess, getPuntoPermiso, getOperador, getPuntoVentaId } from "@/lib/auth";
+import { consumoSchema } from "@/lib/schemas";
+import { apiError, apiSuccess } from "@/lib/api-error";
+import { isGuestId, chargeGuest, getGuestProfile, GUEST_ID_CONST } from "@/lib/guest-store";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await hasScannerAccess())) {
+    return apiError("Dispositivo no verificado", 401);
+  }
+
+  const permiso = await getPuntoPermiso();
+  if (permiso && permiso !== "admin" && permiso !== "barra") {
+    return apiError("Este punto no tiene permiso para cobrar", 403);
+  }
+
   const { id } = await params;
   const socioId = parseInt(id);
 
   if (Number.isNaN(socioId)) {
-    return Response.json({ error: "Socio no válido" }, { status: 400 });
+    return apiError("Socio no válido", 400);
   }
 
   const body = await request.json().catch(() => null);
   const parsed = consumoSchema.safeParse(body);
 
   if (!parsed.success) {
-    return Response.json(
-      { error: "Datos de consumo no válidos", details: parsed.error.issues },
-      { status: 400 }
-    );
-  }
-
-  const socio = await db.socio.findUnique({
-    where: { id: socioId },
-  });
-
-  if (!socio) {
-    return Response.json({ error: "Socio no encontrado" }, { status: 404 });
-  }
-
-  if (socio.estadoPulsera !== "activa") {
-    return Response.json(
-      { error: "Pulsera desactivada" },
-      { status: 403 }
-    );
+    return apiError("Datos de consumo no válidos", 400, parsed.error.issues);
   }
 
   const productoIds = parsed.data.items.map((item) => item.productoId);
@@ -57,7 +39,7 @@ export async function POST(
   const productosPorId = new Map(productos.map((producto) => [producto.id, producto]));
 
   if (productos.length !== new Set(productoIds).size) {
-    return Response.json({ error: "Producto no encontrado" }, { status: 400 });
+    return apiError("Producto no encontrado", 400);
   }
 
   const total = parsed.data.items.reduce((sum, item) => {
@@ -66,14 +48,7 @@ export async function POST(
   }, 0);
 
   if (total <= 0) {
-    return Response.json({ error: "Importe no válido" }, { status: 400 });
-  }
-
-  if (socio.credito < total) {
-    return Response.json(
-      { error: "Crédito insuficiente", creditoActual: socio.credito },
-      { status: 400 }
-    );
+    return apiError("Importe no válido", 400);
   }
 
   const descripcion = parsed.data.items
@@ -82,6 +57,44 @@ export async function POST(
       return `${producto?.nombre} x${item.cantidad}`;
     })
     .join(", ");
+
+  // ─── Invitado: cobro en memoria ─────────────────────
+  if (isGuestId(socioId)) {
+    const guest = getGuestProfile();
+    if (guest.credito < total) {
+      return apiError("Crédito insuficiente", 400, { creditoActual: guest.credito });
+    }
+
+    const ok = chargeGuest(total);
+    if (!ok) {
+      return apiError("No se pudo completar el cobro.", 409);
+    }
+
+    return apiSuccess({
+      id: GUEST_ID_CONST,
+      nombre: "Invitado",
+      numeroSocio: "I-001",
+      credito: guest.credito - total,
+      estadoPulsera: "activa",
+    });
+  }
+
+  // ─── Socio normal: cobro en BD ──────────────────────
+  const socio = await db.socio.findUnique({
+    where: { id: socioId },
+  });
+
+  if (!socio) {
+    return apiError("Socio no encontrado", 404);
+  }
+
+  if (socio.estadoPulsera !== "activa") {
+    return apiError("Pulsera desactivada", 403);
+  }
+
+  if (socio.credito < total) {
+    return apiError("Crédito insuficiente", 400, { creditoActual: socio.credito });
+  }
 
   const updated = await db.$transaction(async (tx) => {
     const update = await tx.socio.updateMany({
@@ -98,9 +111,11 @@ export async function POST(
     await tx.transaccion.create({
       data: {
         socioId,
-        tipo: "consumo",
+        tipo: "consumo" as const,
         cantidad: total,
         descripcion,
+        operador: await getOperador(),
+        puntoVentaId: await getPuntoVentaId(),
       },
     });
 
@@ -108,11 +123,8 @@ export async function POST(
   });
 
   if (!updated) {
-    return Response.json(
-      { error: "No se pudo completar el cobro. Revisa el crédito o el estado de la pulsera." },
-      { status: 409 }
-    );
+    return apiError("No se pudo completar el cobro. Revisa el crédito o el estado de la pulsera.", 409);
   }
 
-  return Response.json(updated);
+  return apiSuccess(updated);
 }

@@ -5,8 +5,11 @@ import { Download, Printer } from "lucide-react";
 
 interface Socio {
   id: number;
-  numeroSocio: number;
+  numeroSocio: string;
   nombre: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  credito: number;
   qrToken: string;
 }
 
@@ -17,59 +20,84 @@ export default function QrMasivoPage() {
   useEffect(() => {
     fetch("/api/socios?limit=500")
       .then((r) => r.json())
-      .then((data) => setSocios(data.socios ?? []))
+      .then((data) => setSocios((data.socios ?? []).filter((s: Socio) => s.credito > 0)))
       .catch(() => setSocios([]))
       .finally(() => setLoading(false));
   }, []);
 
   const generatePDF = async () => {
     const { default: jsPDF } = await import("jspdf");
+    const qrModule = await import("qrcode");
 
     const doc = new jsPDF("p", "mm", "a4");
-    const pageW = 210;
-    const pageH = 297;
-    const margin = 10;
+
+    // ─── Medidas ──────────────────────────────────────
+    const pageW = 210; // A4 ancho
+    const pageH = 297; // A4 alto
+    const margin = 10; // mm
+    const cardW = 50;  // 5 cm
+    const cardH = 30;  // 3 cm
     const cols = 3;
-    const rows = 4;
-    const cardW = (pageW - margin * 2) / cols;
-    const cardH = (pageH - margin * 2) / rows;
+    const gapX = (pageW - margin * 2 - cols * cardW) / (cols - 1); // espacio entre columnas
+    const gapY = 3; // espacio entre filas
+    const cardsPerPage = cols * Math.floor((pageH - margin * 2) / (cardH + gapY));
 
     let current = 0;
 
     for (const socio of socios) {
-      const col = current % cols;
-      const row = Math.floor(current / cols) % rows;
+      const pageIndex = current % cardsPerPage;
+      const col = pageIndex % cols;
+      const row = Math.floor(pageIndex / cols);
 
-      if (current > 0 && current % (cols * rows) === 0) {
+      // Nueva página cuando toca
+      if (current > 0 && pageIndex === 0) {
         doc.addPage();
       }
 
-      const x = margin + col * cardW;
-      const y = margin + row * cardH;
+      const x = margin + col * (cardW + gapX);
+      const y = margin + row * (cardH + gapY);
 
-      const qrUrl = `${window.location.origin}/scanner?token=${socio.qrToken}`;
-
-      // Generate QR as canvas data URL
-      const qrModule = await import("qrcode");
+      // ─── Generar QR ─────────────────────────────────
+      const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
       const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
-        width: 200,
+        width: 250,
         margin: 1,
         color: { dark: "#000000", light: "#FFFFFF" },
       });
 
-      const qrSize = Math.min(cardW, cardH) - 20;
-      const qrX = x + (cardW - qrSize) / 2;
-      const qrY = y + 5;
-
+      // ─── QR en la izquierda ─────────────────────────
+      const qrSize = cardH - 6; // 24mm, casi todo el alto de la etiqueta
+      const qrX = x + 3;        // margen interior 3mm
+      const qrY = y + 3;
       doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
+      // ─── Datos a la derecha del QR ──────────────────
+      const parts = socio.nombre.trim().split(/\s+/);
+      const nombreLinea = socio.apellido1
+        ? socio.nombre
+        : parts.slice(0, -1).join(" ");
+      const apellidoLinea = socio.apellido1 ?? (parts.length >= 2 ? parts[parts.length - 1] : "");
+      const textX = qrX + qrSize + 3; // 3mm de separación
+      const lineH = 4.5; // altura de línea en mm
+
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      doc.text(
-        `${socio.nombre} (#${socio.numeroSocio})`,
-        x + cardW / 2,
-        y + cardH - 3,
-        { align: "center" }
-      );
+      doc.text(`Nº ${socio.numeroSocio}`, textX, y + 7);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(nombreLinea, textX, y + 7 + lineH);
+
+      if (apellidoLinea) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.text(apellidoLinea, textX, y + 7 + lineH * 2);
+      }
+
+      // ─── Borde sutil de recorte ─────────────────────
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.1);
+      doc.rect(x, y, cardW, cardH);
 
       current++;
     }
@@ -80,19 +108,19 @@ export default function QrMasivoPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-bold flex items-center gap-2">
-        <Printer className="w-6 h-6" /> Generar QR Masivo
+        <Printer className="w-6 h-6" /> Generar QR para Pulseras
       </h1>
 
       <div className="bg-white border border-border rounded-xl p-6 space-y-4">
         <p className="text-muted-foreground">
-          Genera un PDF con todos los códigos QR para imprimir y colocar en las
-          pulseras. Cada página contiene {12} QRs organizados en 3 columnas y 4 filas.
+          Genera un PDF con etiquetas de <strong>5×3 cm</strong> listas para
+          recortar y pegar en las pulseras. Cada etiqueta incluye QR + Nº de
+          socio, nombre y primer apellido. Se imprimen{" "}
+          <strong>{3} columnas</strong> por página con marca de corte.
         </p>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">
-            Cargando socios...
-          </p>
+          <p className="text-sm text-muted-foreground">Cargando socios...</p>
         ) : (
           <div className="space-y-4">
             <p className="text-sm">
