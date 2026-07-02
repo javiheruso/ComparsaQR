@@ -399,8 +399,8 @@ function ScannerResultContent() {
             ) : (
               <button
                 onClick={() => setMostrarConfirmacion(true)}
-                disabled={processing}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
+                disabled={processing || totalItems === 0}
+                className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 disabled:opacity-50 transition-colors"
               >
                 {processing ? "Cobrando..." : "Cobrar"}
               </button>
@@ -448,9 +448,9 @@ function ScannerResultContent() {
               <button
                 onClick={cobrar}
                 disabled={processing}
-                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 disabled:opacity-50"
+                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 disabled:opacity-50 transition-colors"
               >
-                Confirmar
+                {processing ? "Procesando..." : "Confirmar"}
               </button>
               <button
                 onClick={() => setMostrarConfirmacion(false)}
@@ -570,7 +570,7 @@ function ScannerResultContent() {
                 disabled={processing || !cargarCantidad}
                 className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
-                {processing ? "Cargando..." : "Cargar Saldo"}
+                {processing ? "Procesando..." : "Cargar Saldo"}
               </button>
               <button
                 onClick={() => {

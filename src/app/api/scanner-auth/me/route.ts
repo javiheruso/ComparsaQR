@@ -1,11 +1,12 @@
 import { hasScannerAccess } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function GET() {
   const verified = await hasScannerAccess();
 
   if (!verified) {
-    return Response.json({ verified: false }, { status: 401 });
+    return apiError("Dispositivo no verificado", 401);
   }
 
-  return Response.json({ verified: true });
+  return apiSuccess({ verified: true });
 }

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function GET(
   _request: Request,
@@ -7,7 +8,7 @@ export async function GET(
 ) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   const { id } = await params;
@@ -17,5 +18,5 @@ export async function GET(
     take: 100,
   });
 
-  return Response.json(transacciones);
+  return apiSuccess(transacciones);
 }

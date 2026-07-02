@@ -1,25 +1,20 @@
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
-import { z } from "zod";
-
-const schema = z.object({
-  tipoVinculacion: z.string().min(1),
-  cantidad: z.number().positive(),
-  descripcion: z.string().optional(),
-});
+import { getSession, getOperador } from "@/lib/auth";
+import { recargaMasivaSchema } from "@/lib/schemas";
+import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   try {
     const body = await request.json();
-    const data = schema.parse(body);
+    const data = recargaMasivaSchema.parse(body);
 
     const socios = await db.socio.findMany({
-      where: { tipoVinculacion: data.tipoVinculacion },
+      where: { tipoVinculacion: data.tipoVinculacion as any },
     });
 
     let procesados = 0;
@@ -35,17 +30,15 @@ export async function POST(request: Request) {
             tipo: "carga",
             cantidad: data.cantidad,
             descripcion: data.descripcion || `Recarga masiva: ${data.tipoVinculacion}`,
+            operador: await getOperador(),
           },
         }),
       ]);
       procesados++;
     }
 
-    return Response.json({ procesados, cantidad: data.cantidad });
+    return apiSuccess({ procesados, cantidad: data.cantidad });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return Response.json({ error: "Datos inválidos", details: err.issues }, { status: 400 });
-    }
-    return Response.json({ error: "Error al recargar" }, { status: 500 });
+    return handleApiError(err, "Error al recargar");
   }
 }

@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function POST() {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   const hoy = new Date();
@@ -12,7 +13,6 @@ export async function POST() {
 
   const reclasificados: { id: number; nombre: string; de: string; a: string }[] = [];
 
-  // socios_menores con 18+ → socio (100€)
   const menoresAMayores = await db.socio.findMany({
     where: {
       tipoVinculacion: "socios_menores",
@@ -22,12 +22,11 @@ export async function POST() {
   for (const s of menoresAMayores) {
     await db.socio.update({
       where: { id: s.id },
-      data: { tipoVinculacion: "socio" },
+      data: { tipoVinculacion: "socio" as const },
     });
     reclasificados.push({ id: s.id, nombre: s.nombre, de: "socios_menores", a: "socio" });
   }
 
-  // hijo_socio con 18+ → hijos_mayores (100€)
   const hijosMenoresAMayores = await db.socio.findMany({
     where: {
       tipoVinculacion: "hijo_socio",
@@ -37,10 +36,10 @@ export async function POST() {
   for (const s of hijosMenoresAMayores) {
     await db.socio.update({
       where: { id: s.id },
-      data: { tipoVinculacion: "hijos_mayores" },
+      data: { tipoVinculacion: "hijos_mayores" as const },
     });
     reclasificados.push({ id: s.id, nombre: s.nombre, de: "hijo_socio", a: "hijos_mayores" });
   }
 
-  return Response.json({ total: reclasificados.length, reclasificados });
+  return apiSuccess({ total: reclasificados.length, reclasificados });
 }

@@ -1,21 +1,29 @@
 import { verifyScannerDevice } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+    const rateCheck = checkRateLimit(`scanner-login:${ip}`);
+    if (!rateCheck.allowed) {
+      return apiError("Demasiados intentos. Intenta de nuevo en 1 minuto.", 429);
+    }
+
     const { password } = await request.json();
 
     if (!password) {
-      return Response.json({ error: "Clave requerida" }, { status: 400 });
+      return apiError("Clave requerida", 400);
     }
 
     const success = await verifyScannerDevice(password);
 
     if (!success) {
-      return Response.json({ error: "Clave incorrecta" }, { status: 401 });
+      return apiError("Clave incorrecta", 401);
     }
 
-    return Response.json({ success: true });
+    return apiSuccess({ success: true });
   } catch {
-    return Response.json({ error: "Error interno" }, { status: 500 });
+    return apiError("Error interno", 500);
   }
 }

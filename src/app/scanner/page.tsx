@@ -106,8 +106,11 @@ function ScannerContent() {
       const cameraId = getPreferredCamera(nextCameras);
       setSelectedCameraId(cameraId);
       return nextCameras;
-    } catch {
-      setError("No se pudo listar las cámaras. Revisa los permisos del navegador.");
+    } catch (err) {
+      const msg = err instanceof DOMException && err.name === "NotAllowedError"
+        ? "Permiso de cámara denegado. Actívalo en la configuración del navegador."
+        : "No se pudo listar las cámaras. Revisa los permisos del navegador.";
+      setError(msg);
       return [];
     } finally {
       setLoadingCameras(false);

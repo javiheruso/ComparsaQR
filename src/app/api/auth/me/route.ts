@@ -1,11 +1,12 @@
 import { getSession } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function GET() {
   const session = await getSession();
 
   if (!session.isLoggedIn) {
-    return Response.json({ authenticated: false }, { status: 401 });
+    return apiError("No autenticado", 401);
   }
 
-  return Response.json({ authenticated: true });
+  return apiSuccess({ authenticated: true });
 }

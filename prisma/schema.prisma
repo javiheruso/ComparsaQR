@@ -7,20 +7,38 @@ datasource db {
   provider = "postgresql"
 }
 
+enum TipoVinculacion {
+  socio
+  hijos_mayores
+  socios_menores
+  hijo_socio
+}
+
+enum EstadoPulsera {
+  activa
+  inactiva
+  perdida
+}
+
+enum TipoTransaccion {
+  carga
+  consumo
+}
+
 model Socio {
-  id               Int           @id @default(autoincrement())
-  numeroSocio      String        @unique
-  dni              String?       @unique
+  id               Int              @id @default(autoincrement())
+  numeroSocio      String           @unique
+  dni              String?          @unique
   nombre           String
   apellido1        String?
   apellido2        String?
-  tipoVinculacion  String        @default("socio")
+  tipoVinculacion  TipoVinculacion  @default(socio)
   fechaNacimiento  DateTime?
-  credito          Float         @default(0)
-  estadoPulsera    String        @default("activa")
-  qrToken          String        @unique @default(uuid())
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  credito          Float            @default(0)
+  estadoPulsera    EstadoPulsera    @default(activa)
+  qrToken          String           @unique @default(uuid())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   transacciones    Transaccion[]
 }
 
@@ -40,11 +58,12 @@ model Heartbeat {
 }
 
 model Transaccion {
-  id          Int      @id @default(autoincrement())
+  id          Int              @id @default(autoincrement())
   socioId     Int
-  socio       Socio    @relation(fields: [socioId], references: [id])
-  tipo        String
+  socio       Socio            @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  tipo        TipoTransaccion
   cantidad    Float
   descripcion String?
-  createdAt   DateTime @default(now())
+  operador    String?
+  createdAt   DateTime         @default(now())
 }

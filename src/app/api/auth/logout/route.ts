@@ -1,4 +1,5 @@
 import { logout } from "@/lib/auth";
+import { apiSuccess } from "@/lib/api-error";
 
 function shouldUseSecureCookie(request: Request) {
   const forwardedProtocol = request.headers.get("x-forwarded-proto");
@@ -9,5 +10,5 @@ function shouldUseSecureCookie(request: Request) {
 
 export async function POST(request: Request) {
   await logout(shouldUseSecureCookie(request));
-  return Response.json({ success: true });
+  return apiSuccess({ success: true });
 }

@@ -1,17 +1,8 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
-import { z } from "zod";
-
-const createSocioSchema = z.object({
-  nombre: z.string().min(1).max(100),
-  apellido1: z.string().max(100).optional(),
-  apellido2: z.string().max(100).optional(),
-  dni: z.string().max(20).optional(),
-  tipoVinculacion: z.string().optional(),
-  fechaNacimiento: z.string().datetime().optional().nullable(),
-  credito: z.number().min(0).default(0),
-});
+import { createSocioSchema } from "@/lib/schemas";
+import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 async function generarNumeroSocio(): Promise<string> {
   const lastSocio = await db.socio.findFirst({
@@ -31,7 +22,7 @@ async function generarNumeroSocio(): Promise<string> {
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   const { searchParams } = request.nextUrl;
@@ -53,8 +44,8 @@ export async function GET(request: NextRequest) {
           ],
         }
       : {}),
-    ...(estado ? { estadoPulsera: estado } : {}),
-    ...(tipo ? { tipoVinculacion: tipo } : {}),
+    ...(estado ? { estadoPulsera: estado as any } : {}),
+    ...(tipo ? { tipoVinculacion: tipo as any } : {}),
   };
 
   const [socios, total] = await Promise.all([
@@ -67,13 +58,13 @@ export async function GET(request: NextRequest) {
     db.socio.count({ where }),
   ]);
 
-  return Response.json({ socios, total, page, totalPages: Math.ceil(total / limit) });
+  return apiSuccess({ socios, total, page, totalPages: Math.ceil(total / limit) });
 }
 
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   try {
@@ -88,17 +79,14 @@ export async function POST(request: Request) {
         apellido1: data.apellido1 ?? null,
         apellido2: data.apellido2 ?? null,
         dni: data.dni || null,
-        tipoVinculacion: data.tipoVinculacion ?? "socio",
+        tipoVinculacion: data.tipoVinculacion as any ?? "socio",
         fechaNacimiento: data.fechaNacimiento ? new Date(data.fechaNacimiento) : null,
         credito: data.credito,
       },
     });
 
-    return Response.json(socio, { status: 201 });
+    return apiSuccess(socio, 201);
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return Response.json({ error: "Datos inválidos", details: err.issues }, { status: 400 });
-    }
-    return Response.json({ error: "Error al crear socio" }, { status: 500 });
+    return handleApiError(err, "Error al crear socio");
   }
 }

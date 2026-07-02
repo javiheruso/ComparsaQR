@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function PATCH(
   _request: Request,
@@ -7,7 +8,7 @@ export async function PATCH(
 ) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   const { id } = await params;
@@ -16,14 +17,14 @@ export async function PATCH(
   });
 
   if (!socio) {
-    return Response.json({ error: "Socio no encontrado" }, { status: 404 });
+    return apiError("Socio no encontrado", 404);
   }
 
-  const nuevoEstado = socio.estadoPulsera === "activa" ? "inactiva" : "activa";
+  const nuevoEstado: "activa" | "inactiva" = socio.estadoPulsera === "activa" ? "inactiva" : "activa";
   const updated = await db.socio.update({
     where: { id: parseInt(id) },
     data: { estadoPulsera: nuevoEstado },
   });
 
-  return Response.json(updated);
+  return apiSuccess(updated);
 }

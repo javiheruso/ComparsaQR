@@ -1,19 +1,20 @@
 import { db } from "@/lib/db";
 import { hasScannerAccess } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   if (!(await hasScannerAccess())) {
-    return Response.json({ error: "Dispositivo no verificado" }, { status: 401 });
+    return apiError("Dispositivo no verificado", 401);
   }
 
   const { token } = await params;
   const qrToken = token.trim();
 
   if (!qrToken || qrToken.length > 200) {
-    return Response.json({ error: "QR no válido" }, { status: 400 });
+    return apiError("QR no válido", 400);
   }
 
   const socio = await db.socio.findUnique({
@@ -28,8 +29,8 @@ export async function GET(
   });
 
   if (!socio) {
-    return Response.json({ error: "QR no válido" }, { status: 404 });
+    return apiError("QR no válido", 404);
   }
 
-  return Response.json(socio);
+  return apiSuccess(socio);
 }

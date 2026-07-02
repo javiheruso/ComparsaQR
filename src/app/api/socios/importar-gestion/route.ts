@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { apiError, apiSuccess } from "@/lib/api-error";
 
 interface Row {
   dni: string;
@@ -39,7 +40,7 @@ const CREDITO_POR_TIPO: Record<string, number> = {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   try {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
           if (existente) {
             await db.socio.update({
               where: { id: existente.id },
-              data: { nombre: row.nombre, apellido1, apellido2, tipoVinculacion: row.tipoVinculacion, fechaNacimiento: fechaNac },
+              data: { nombre: row.nombre, apellido1, apellido2, tipoVinculacion: row.tipoVinculacion as any, fechaNacimiento: fechaNac },
             });
             actualizados++;
             continue;
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
 
         const numeroSocio = await generarNumeroSocio();
         await db.socio.create({
-          data: { numeroSocio, dni, nombre: row.nombre, apellido1, apellido2, tipoVinculacion: row.tipoVinculacion, fechaNacimiento: fechaNac, credito },
+          data: { numeroSocio, dni, nombre: row.nombre, apellido1, apellido2, tipoVinculacion: row.tipoVinculacion as any, fechaNacimiento: fechaNac, credito },
         });
         creados++;
       } catch (err) {
@@ -80,8 +81,8 @@ export async function POST(request: Request) {
       }
     }
 
-    return Response.json({ creados, actualizados, omitidos, errores: errores.slice(0, 20) });
+    return apiSuccess({ creados, actualizados, omitidos, errores: errores.slice(0, 20) });
   } catch {
-    return Response.json({ error: "Error al procesar importación" }, { status: 500 });
+    return apiError("Error al procesar importación", 500);
   }
 }

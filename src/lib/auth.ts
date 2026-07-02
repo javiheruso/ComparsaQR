@@ -72,7 +72,7 @@ export async function logout(secureCookie?: boolean) {
 }
 
 export async function verifyScannerDevice(password: string, secureCookie?: boolean): Promise<boolean> {
-  const scannerPassword = process.env.SCANNER_PASSWORD || process.env.ADMIN_PASSWORD;
+  const scannerPassword = process.env.SCANNER_PASSWORD;
   if (!scannerPassword) return false;
 
   const isValid = await verifyPassword(password, scannerPassword);
@@ -90,4 +90,11 @@ export async function verifyScannerDevice(password: string, secureCookie?: boole
 export async function hasScannerAccess(): Promise<boolean> {
   const session = await getSession();
   return Boolean(session.isLoggedIn || session.scannerVerified);
+}
+
+export async function getOperador(): Promise<string | null> {
+  const session = await getSession();
+  if (session.isLoggedIn) return "admin";
+  if (session.scannerVerified) return "scanner";
+  return null;
 }
