@@ -211,6 +211,17 @@ export async function POST() {
         }
 
         if (existente) {
+          // Limpiar DNI de otros socios antes de actualizar
+          if (dniNorm && normalizarDNI(existente.dni) !== dniNorm) {
+            await db.$executeRawUnsafe(
+              `UPDATE "Socio" SET dni = NULL WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 AND id != $2`,
+              dniNorm, existente.id
+            );
+            for (const [key, val] of porDni) {
+              if (key === dniNorm && val.id !== existente.id) porDni.delete(key);
+            }
+          }
+
           const apellidosSplit = gs.apellidos.trim().split(/\s+/);
           const ape1 = apellidosSplit[0] || "";
           const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;
