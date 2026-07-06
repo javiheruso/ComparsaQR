@@ -45,6 +45,38 @@ const CREDITO_POR_TIPO: Record<string, number> = {
   hijo_socio: 0,
 };
 
+async function buscarExistente(
+  numeroSocio: string,
+  dni: string | null,
+  nombre: string,
+  apellido1: string,
+  apellido2: string | undefined
+) {
+  // 1) Por numeroSocio
+  const porNum = await db.socio.findUnique({ where: { numeroSocio } });
+  if (porNum) return porNum;
+
+  // 2) Por DNI
+  if (dni) {
+    const porDni = await db.socio.findUnique({ where: { dni } });
+    if (porDni) return porDni;
+  }
+
+  // 3) Por nombre + apellidos (case-insensitive)
+  const porNombre = await db.socio.findFirst({
+    where: {
+      nombre: { equals: nombre, mode: "insensitive" },
+      apellido1: { equals: apellido1, mode: "insensitive" },
+      ...(apellido2
+        ? { apellido2: { equals: apellido2, mode: "insensitive" } }
+        : { apellido2: null }),
+    },
+  });
+  if (porNombre) return porNombre;
+
+  return null;
+}
+
 export async function POST() {
   const session = await getSession();
   if (!session.isLoggedIn) {
@@ -52,18 +84,15 @@ export async function POST() {
   }
 
   try {
-    // 1) Leer socios de llaganyosos
     const gestionSocios: GestionSocio[] = await fetchGestion(
       `socios?select=id,numero_socio,dni,nombre,apellidos,tipo_vinculacion,fecha_nacimiento`
     );
 
-    // 2) Obtener el último ejercicio
     const ejercicios: { id: string }[] = await fetchGestion(
       `ejercicios?select=id&order=created_at.desc&limit=1`
     );
     const ejercicioId = ejercicios[0]?.id;
 
-    // 3) Leer membresías del ejercicio activo
     const activosSet = new Set<string>();
 
     if (ejercicioId) {
@@ -82,7 +111,6 @@ export async function POST() {
     let desactivados = 0;
     const errores: string[] = [];
 
-    // 4) Sincronizar cada socio
     for (const gs of gestionSocios) {
       try {
         const numSocioInt = gs.numero_socio ?? 0;
@@ -92,12 +120,19 @@ export async function POST() {
         const fechaNac = gs.fecha_nacimiento ? new Date(gs.fecha_nacimiento) : null;
         const [apellido1, apellido2] = splitApellidos(gs.apellidos);
 
-        const existente = await db.socio.findUnique({ where: { numeroSocio } });
+        const existente = await buscarExistente(
+          numeroSocio,
+          gs.dni,
+          gs.nombre,
+          apellido1,
+          apellido2
+        );
 
         if (existente) {
           await db.socio.update({
             where: { id: existente.id },
             data: {
+              numeroSocio,
               nombre: gs.nombre,
               apellido1,
               apellido2,
@@ -131,7 +166,6 @@ export async function POST() {
       }
     }
 
-    // 5) Desactivar socios que ya no están en gestión (sin crédito pendiente)
     const gestionNums = new Set(
       gestionSocios.map((s) => s.numero_socio).filter((n): n is number => n !== null)
     );
