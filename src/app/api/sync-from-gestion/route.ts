@@ -51,13 +51,6 @@ function normalizarDNI(dni: string | null): string | null {
   return dni.trim().toUpperCase().replace(/[\s-]/g, "");
 }
 
-const CREDITO_POR_TIPO: Record<string, number> = {
-  socio: 100,
-  hijos_mayores: 100,
-  socios_menores: 50,
-  hijo_socio: 0,
-};
-
 export async function POST() {
   const session = await getSession();
   if (!session.isLoggedIn) {
@@ -253,7 +246,7 @@ export async function POST() {
 
           actualizados++;
         } else {
-          const credito = CREDITO_POR_TIPO[tipoVinculacion] ?? 0;
+          const credito = 0;
           const apellidosSplit = gs.apellidos.trim().split(/\s+/);
           const ape1 = apellidosSplit[0] || "";
           const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;

@@ -32,13 +32,6 @@ async function generarNumeroSocio(): Promise<string> {
   return `s-${String(next).padStart(3, "0")}`;
 }
 
-const CREDITO_POR_TIPO: Record<string, number> = {
-  socio: 100,
-  hijos_mayores: 100,
-  socios_menores: 50,
-  hijo_socio: 0,
-};
-
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
@@ -60,7 +53,7 @@ export async function POST(request: Request) {
         const fechaNac = row.fechaNacimiento ? new Date(row.fechaNacimiento) : null;
         const dni = row.dni?.trim() || null;
         const activo = row.activo?.trim().toLowerCase() === "true";
-        const credito = CREDITO_POR_TIPO[row.tipoVinculacion] ?? 0;
+        const credito = 0;
 
         // Formatear numeroSocio si viene del CSV
         let numeroSocio: string | null = null;
