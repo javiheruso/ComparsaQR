@@ -86,10 +86,24 @@ export async function POST() {
       for (const s of gestionSocios) activosSet.add(s.id);
     }
 
-    // Normalizar DNIs existentes en BD (quitar espacios/guiones)
-    await db.$executeRawUnsafe(
-      `UPDATE "Socio" SET dni = REPLACE(REPLACE(dni, ' ', ''), '-', '') WHERE dni IS NOT NULL`
-    );
+    // Normalizar DNIs evitando duplicados: para cada DNI repetido, dejar solo el primero
+    await db.$executeRawUnsafe(`
+      WITH normalizados AS (
+        SELECT id, UPPER(REPLACE(REPLACE(TRIM(dni), ' ', ''), '-', '')) AS dni_norm
+        FROM "Socio" WHERE dni IS NOT NULL
+      ),
+      con_fila AS (
+        SELECT id, dni_norm, ROW_NUMBER() OVER (PARTITION BY dni_norm ORDER BY id) AS rn
+        FROM normalizados
+      )
+      UPDATE "Socio" s SET dni = NULL
+      FROM con_fila cf
+      WHERE s.id = cf.id AND cf.rn > 1
+    `);
+    await db.$executeRawUnsafe(`
+      UPDATE "Socio" SET dni = UPPER(REPLACE(REPLACE(TRIM(dni), ' ', ''), '-', ''))
+      WHERE dni IS NOT NULL
+    `);
 
     // Cargar todos los socios de QR una sola vez
     const todosQR = await db.socio.findMany({
