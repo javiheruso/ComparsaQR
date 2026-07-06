@@ -205,7 +205,15 @@ export async function POST() {
               dniNorm
             );
             if (dupe.length > 0) {
-              existente = await db.socio.findUnique({ where: { id: dupe[0].id } });
+              const found = await db.socio.findUnique({
+                where: { id: dupe[0].id },
+                select: {
+                  id: true, numeroSocio: true, dni: true,
+                  nombre: true, apellido1: true, apellido2: true,
+                  credito: true, estadoPulsera: true,
+                },
+              });
+              if (found) existente = found;
             }
           }
         }
