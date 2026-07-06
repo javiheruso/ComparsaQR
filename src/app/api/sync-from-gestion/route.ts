@@ -46,6 +46,11 @@ function normalizar(s: string): string {
   return s.trim().toUpperCase().replace(/\s+/g, " ");
 }
 
+function normalizarDNI(dni: string | null): string | null {
+  if (!dni) return null;
+  return dni.trim().toUpperCase().replace(/[\s-]/g, "");
+}
+
 const CREDITO_POR_TIPO: Record<string, number> = {
   socio: 100,
   hijos_mayores: 100,
@@ -81,6 +86,11 @@ export async function POST() {
       for (const s of gestionSocios) activosSet.add(s.id);
     }
 
+    // Normalizar DNIs existentes en BD (quitar espacios/guiones)
+    await db.$executeRawUnsafe(
+      `UPDATE "Socio" SET dni = REPLACE(REPLACE(dni, ' ', ''), '-', '') WHERE dni IS NOT NULL`
+    );
+
     // Cargar todos los socios de QR una sola vez
     const todosQR = await db.socio.findMany({
       select: {
@@ -100,7 +110,7 @@ export async function POST() {
     const porDni = new Map<string, SocioQR>();
     for (const sq of todosQR) {
       porNumero.set(sq.numeroSocio, sq);
-      if (sq.dni) porDni.set(sq.dni, sq);
+      if (sq.dni) porDni.set(normalizarDNI(sq.dni)!, sq);
     }
 
     let actualizados = 0;
@@ -116,34 +126,38 @@ export async function POST() {
         const tipoVinculacion = gs.tipo_vinculacion;
         const activo = activosSet.has(gs.id);
         const fechaNac = gs.fecha_nacimiento ? new Date(gs.fecha_nacimiento) : null;
-        const nombreNorm = normalizar(gs.nombre);
-        const apellidosNorm = normalizar(gs.apellidos);
 
         // Buscar existente
         let existente = porNumero.get(numeroSocio);
 
-        if (!existente && gs.dni) {
-          existente = porDni.get(gs.dni);
+        const dniNorm = normalizarDNI(gs.dni);
+
+        if (!existente && dniNorm) {
+          existente = porDni.get(dniNorm);
         }
 
         if (!existente) {
-          // Búsqueda por nombre completo
+          // Búsqueda por nombre completo (socios con nombre+apellidos separados
+          // o nombre completo antiguo en el campo nombre)
+          const nombreCompletoGestion = normalizar(`${gs.nombre} ${gs.apellidos}`);
           existente = todosQR.find((sq) => {
-            const nombreQRNorm = normalizar(sq.nombre);
-            const apellidosQRNorm = normalizar(
-              [sq.apellido1, sq.apellido2].filter(Boolean).join(" ")
+            const nombreCompletoQR = normalizar(
+              [sq.nombre, sq.apellido1, sq.apellido2].filter(Boolean).join(" ")
             );
-            return nombreNorm === nombreQRNorm && apellidosNorm === apellidosQRNorm;
+            return nombreCompletoGestion === nombreCompletoQR;
           });
         }
 
         if (existente) {
           // Si el DNI tiene que cambiar y ya está en otro socio, quitarlo de allí
-          if (gs.dni && existente.dni !== gs.dni) {
-            await db.socio.updateMany({
-              where: { dni: gs.dni, id: { not: existente.id } },
-              data: { dni: null },
-            });
+          if (dniNorm && normalizarDNI(existente.dni) !== dniNorm) {
+            await db.$executeRawUnsafe(
+              `UPDATE "Socio" SET dni = NULL WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 AND id != $2`,
+              dniNorm, existente.id
+            );
+            for (const [key, val] of porDni) {
+              if (key === dniNorm && val.id !== existente.id) porDni.delete(key);
+            }
           }
 
           const apellidosSplit = gs.apellidos.trim().split(/\s+/);
@@ -157,19 +171,55 @@ export async function POST() {
               nombre: gs.nombre,
               apellido1: ape1,
               apellido2: ape2,
-              dni: gs.dni,
+              dni: dniNorm,
               tipoVinculacion,
               fechaNacimiento: fechaNac,
               estadoPulsera: activo ? "activa" : "inactiva",
             },
           });
 
-          // Actualizar índices locales
-          porNumero.set(numeroSocio, { ...existente, numeroSocio, dni: gs.dni ?? existente.dni });
+          // Refrescar índices locales
+          if (dniNorm) porDni.set(dniNorm, { ...existente, numeroSocio, dni: dniNorm });
+          else if (existente.dni) porDni.delete(normalizarDNI(existente.dni)!);
 
           actualizados++;
         } else {
-          // No encontrado: crear nuevo
+          // Buscar por DNI normalizado en BD por si existe con otro nº de socio
+          if (!existente && dniNorm) {
+            const dupe = await db.$queryRawUnsafe<{ id: number }[]>(
+              `SELECT id FROM "Socio" WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 LIMIT 1`,
+              dniNorm
+            );
+            if (dupe.length > 0) {
+              existente = await db.socio.findUnique({ where: { id: dupe[0].id } });
+            }
+          }
+        }
+
+        if (existente) {
+          const apellidosSplit = gs.apellidos.trim().split(/\s+/);
+          const ape1 = apellidosSplit[0] || "";
+          const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;
+
+          await db.socio.update({
+            where: { id: existente.id },
+            data: {
+              numeroSocio,
+              nombre: gs.nombre,
+              apellido1: ape1,
+              apellido2: ape2,
+              dni: dniNorm,
+              tipoVinculacion,
+              fechaNacimiento: fechaNac,
+              estadoPulsera: activo ? "activa" : "inactiva",
+            },
+          });
+
+          if (dniNorm) porDni.set(dniNorm, { ...existente, numeroSocio, dni: dniNorm });
+          else if (existente.dni) porDni.delete(normalizarDNI(existente.dni)!);
+
+          actualizados++;
+        } else {
           const credito = CREDITO_POR_TIPO[tipoVinculacion] ?? 0;
           const apellidosSplit = gs.apellidos.trim().split(/\s+/);
           const ape1 = apellidosSplit[0] || "";
@@ -181,7 +231,7 @@ export async function POST() {
               nombre: gs.nombre,
               apellido1: ape1,
               apellido2: ape2,
-              dni: gs.dni,
+              dni: dniNorm,
               tipoVinculacion,
               fechaNacimiento: fechaNac,
               credito,
@@ -189,10 +239,8 @@ export async function POST() {
             },
           });
 
-          porNumero.set(numeroSocio, nuevo);
-          if (gs.dni) porDni.set(gs.dni, nuevo);
+          if (dniNorm) porDni.set(dniNorm, nuevo);
           todosQR.push(nuevo);
-
           creados++;
         }
       } catch (err) {
