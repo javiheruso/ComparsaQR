@@ -11,16 +11,25 @@ interface Socio {
   nombre: string;
   apellido1: string | null;
   apellido2: string | null;
+  tipoVinculacion: string;
   credito: number;
   estadoPulsera: string;
   qrToken: string;
 }
+
+const TIPO_LABELS: Record<string, string> = {
+  socio: "Socio",
+  socios_menores: "Soc. menor",
+  hijos_mayores: "Hijo mayor",
+  hijo_socio: "Hijo menor",
+};
 
 const PAGE_SIZE = 50;
 
 export default function SociosPage() {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [search, setSearch] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -33,6 +42,7 @@ export default function SociosPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
+      if (tipoFilter) params.set("tipo", tipoFilter);
       params.set("page", String(pagina ?? page));
       params.set("limit", String(PAGE_SIZE));
       const res = await fetch(`/api/socios?${params}`);
@@ -44,7 +54,7 @@ export default function SociosPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, page]);
+  }, [search, tipoFilter, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -52,7 +62,7 @@ export default function SociosPage() {
       fetchSocios(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, tipoFilter]);
 
   useEffect(() => {
     fetchSocios();
@@ -87,14 +97,20 @@ export default function SociosPage() {
     try {
       let data: Socio[];
       if (todos) {
-        const res = await fetch("/api/socios?limit=9999&search=" + encodeURIComponent(search));
+        const params = new URLSearchParams();
+        if (tipoFilter) params.set("tipo", tipoFilter);
+        params.set("limit", "9999");
+        params.set("search", encodeURIComponent(search));
+        const res = await fetch(`/api/socios?${params}`);
         const json = await res.json();
         data = json.socios ?? [];
       } else {
         data = socios;
       }
-      const cabecera = "Nº Socio,Nombre,Apellido1,Apellido2,Crédito,Estado";
-      const filas = data.map((s) => `${s.numeroSocio},"${s.nombre}","${s.apellido1 ?? ""}","${s.apellido2 ?? ""}",${s.credito},${s.estadoPulsera}`);
+      const cabecera = "Nº Socio,Nombre,Apellido1,Apellido2,Tipo,Crédito,Estado";
+      const filas = data.map((s) =>
+        `${s.numeroSocio},"${s.nombre}","${s.apellido1 ?? ""}","${s.apellido2 ?? ""}",${s.tipoVinculacion},${s.credito},${s.estadoPulsera}`
+      );
       const csv = [cabecera, ...filas].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -142,7 +158,7 @@ export default function SociosPage() {
                 onClick={() => exportarCSV(true)}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors rounded-b-xl border-t border-border"
               >
-                Todos los socios
+                Todos los filtrados
               </button>
             </div>
           </div>
@@ -162,15 +178,28 @@ export default function SociosPage() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre, apellido o nº de socio..."
-          className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-        />
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, apellido o nº de socio..."
+            className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+          />
+        </div>
+        <select
+          value={tipoFilter}
+          onChange={(e) => setTipoFilter(e.target.value)}
+          className="px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors bg-white"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="socio">Socio</option>
+          <option value="socios_menores">Socio menor</option>
+          <option value="hijos_mayores">Hijo mayor</option>
+          <option value="hijo_socio">Hijo menor</option>
+        </select>
       </div>
 
       <div className="bg-white border border-border rounded-xl overflow-hidden">
@@ -207,6 +236,9 @@ export default function SociosPage() {
                     </p>
                   </div>
                 </Link>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
+                  {TIPO_LABELS[socio.tipoVinculacion] ?? socio.tipoVinculacion}
+                </span>
                 <div className="flex items-center gap-3">
                   <span className="font-semibold text-sm">
                     {formatEuro(socio.credito)}

@@ -191,7 +191,7 @@ export default function SocioDetailPage() {
                   <option value="socio">Socio</option>
                   <option value="hijos_mayores">Hijo mayor</option>
                   <option value="socios_menores">Socio menor</option>
-                  <option value="hijo_socio">Hijo de socio</option>
+                  <option value="hijo_socio">Hijo menor</option>
                 </select>
                 <input
                   type="date"
