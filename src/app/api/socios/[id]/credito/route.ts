@@ -33,6 +33,10 @@ export async function POST(
       return apiError("Socio no encontrado", 404);
     }
 
+    if (socio.estadoPulsera !== "activa") {
+      return apiError("No se puede recargar a un socio inactivo", 403);
+    }
+
     const updated = await db.$transaction(async (tx) => {
       const s = await tx.socio.update({
         where: { id: socioIdNum },
