@@ -1,0 +1,287 @@
+export type TipoFormato = "llaveros" | "pulseras";
+
+interface Socio {
+  numeroSocio: string;
+  nombre: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  qrToken: string;
+}
+
+interface Medidas {
+  cardW: number;
+  cardH: number;
+  cols: number;
+  rows: number;
+  gap: number;
+  marginLeft: number;
+  marginTop: number;
+  qrSize: number;
+  qrX: number;
+  qrY: number;
+  textX: number;
+  textY: number;
+  textW: number;
+  textH: number;
+  holeDiam: number;
+  holeX: number;
+}
+
+function calcularMargenes(cardW: number, cardH: number, cols: number, rows: number, gap: number) {
+  const pageW = 210;
+  const pageH = 297;
+  const marginLeft = (pageW - cols * cardW - (cols - 1) * gap) / 2;
+  const marginTop = (pageH - rows * cardH - (rows - 1) * gap) / 2;
+  return { marginLeft, marginTop };
+}
+
+const LLAVEROS: Medidas = (() => {
+  const cardW = 60, cardH = 30, cols = 3, rows = 8, gap = 3;
+  const qrSize = 25.5;
+  const qrX = 2;
+  const qrY = (cardH - qrSize) / 2;
+  const textW = 20;
+  const textH = 20;
+  const textX = qrX + qrSize + 2.5;
+  const textY = (cardH - textH) / 2;
+  const holeDiam = 4;
+  const holeX = cardW - 4.5;
+  const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
+  return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
+})();
+
+const PULSERAS: Medidas = (() => {
+  const cardW = 50, cardH = 19, cols = 3, rows = 13, gap = 3;
+  const qrSize = 17;
+  const qrX = 2;
+  const qrY = (cardH - qrSize) / 2;
+  const textW = 20;
+  const textH = 15;
+  const textX = qrX + qrSize + 2.5;
+  const textY = (cardH - textH) / 2;
+  const holeDiam = 0;
+  const holeX = 0;
+  const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
+  return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
+})();
+
+export function getMedidas(formato: TipoFormato): Medidas {
+  return formato === "llaveros" ? LLAVEROS : PULSERAS;
+}
+
+export function getSociosPorPagina(formato: TipoFormato): number {
+  const m = getMedidas(formato);
+  return m.cols * m.rows;
+}
+
+export function getNombreArchivo(formato: TipoFormato, numeroSocio?: string): string {
+  const prefijo = formato === "llaveros" ? "llavero" : "pulsera";
+  return numeroSocio ? `${prefijo}-${numeroSocio}.png` : `${prefijo}s-qr.pdf`;
+}
+
+export function getNombrePlantilla(formato: TipoFormato): string {
+  return `/formatos/${formato}.jpg`;
+}
+
+export function obtenerTextos(socio: Socio): string[] {
+  const apellidos = [socio.apellido1, socio.apellido2].filter(Boolean).join(" ");
+  const lineas = [`Nº ${socio.numeroSocio}`, socio.nombre];
+  if (apellidos) lineas.push(apellidos);
+  return lineas;
+}
+
+function getPosicionEtiqueta(index: number, medidas: Medidas) {
+  const col = index % medidas.cols;
+  const row = Math.floor(index / medidas.cols);
+  const x = medidas.marginLeft + col * (medidas.cardW + medidas.gap);
+  const y = medidas.marginTop + row * (medidas.cardH + medidas.gap);
+  return { x, y };
+}
+
+export function calcularFontSize(
+  textos: string[],
+  anchoMaxMm: number,
+  altoMaxMm: number,
+  medirTexto: (texto: string, tamano: number) => number
+): number {
+  const ptToMm = 0.353;
+  let fontSize = 9;
+  const lineSpacing = 0.5;
+  for (; fontSize >= 4; fontSize -= 0.5) {
+    const lineH = fontSize * ptToMm + lineSpacing;
+    const totalAltura = textos.length * lineH;
+    let cabe = totalAltura <= altoMaxMm;
+    if (cabe) {
+      for (const t of textos) {
+        if (medirTexto(t, fontSize) > anchoMaxMm) { cabe = false; break; }
+      }
+    }
+    if (cabe) return fontSize;
+  }
+  return 4;
+}
+
+export async function cargarImagen(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+export async function cargarFuenteImpactPDF(doc: any): Promise<void> {
+  const resp = await fetch("/fonts/impact.ttf");
+  const buffer = await resp.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
+  doc.addFileToVFS("Impact.ttf", base64);
+  doc.addFont("Impact.ttf", "Impact", "normal");
+}
+
+export async function generarPaginaPDF(
+  doc: any,
+  formato: TipoFormato,
+  templateImg: HTMLImageElement,
+  socios: Socio[],
+  startIndex: number,
+  qrModule: any
+): Promise<void> {
+  const medidas = getMedidas(formato);
+  const cardsPerPage = medidas.cols * medidas.rows;
+
+  for (let i = 0; i < cardsPerPage; i++) {
+    const socioIdx = startIndex + i;
+    if (socioIdx >= socios.length) break;
+
+    if (i === 0) {
+      doc.addImage(templateImg, "JPEG", 0, 0, 210, 297);
+    }
+
+    const socio = socios[socioIdx];
+    const pos = getPosicionEtiqueta(i, medidas);
+
+    const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
+    const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+      width: 250,
+      margin: 1,
+      color: { dark: "#000000", light: "#FFFFFF" },
+    });
+
+    doc.addImage(qrDataUrl, "PNG", pos.x + medidas.qrX, pos.y + medidas.qrY, medidas.qrSize, medidas.qrSize);
+
+    await cargarFuenteImpactPDF(doc);
+    const textos = obtenerTextos(socio);
+    const medirTexto = (texto: string, tam: number): number => {
+      doc.setFont("Impact", "normal");
+      doc.setFontSize(tam);
+      return doc.getTextWidth(texto);
+    };
+
+    const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
+    const ptToMm = 0.353;
+    const lineSpacing = 0.5;
+
+    doc.setFont("Impact", "normal");
+    doc.setFontSize(fontSize);
+
+    let textY = pos.y + medidas.textY + fontSize * ptToMm;
+    for (const texto of textos) {
+      if (!texto) continue;
+      doc.text(texto, pos.x + medidas.textX, textY);
+      textY += fontSize * ptToMm + lineSpacing;
+    }
+  }
+}
+
+export async function generarEtiquetaPNG(
+  formato: TipoFormato,
+  socio: Socio,
+  dpi: number = 300
+): Promise<string> {
+  const medidas = getMedidas(formato);
+  const mmToPx = dpi / 25.4;
+  const canvasW = Math.round(medidas.cardW * mmToPx);
+  const canvasH = Math.round(medidas.cardH * mmToPx);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext("2d")!;
+  const lineW = Math.max(1, mmToPx * 0.3);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  if (formato === "llaveros") {
+    const r = canvasH / 2;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(canvasW - r, 0);
+    ctx.arcTo(canvasW, 0, canvasW, canvasH, r);
+    ctx.arcTo(canvasW, canvasH, 0, canvasH, r);
+    ctx.arcTo(0, canvasH, 0, 0, r);
+    ctx.arcTo(0, 0, canvasW, 0, r);
+    ctx.closePath();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fill();
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = lineW;
+    ctx.stroke();
+
+    if (medidas.holeDiam > 0) {
+      const holeR = (medidas.holeDiam / 2) * mmToPx;
+      const holeCx = medidas.holeX * mmToPx;
+      const holeCy = canvasH / 2;
+      ctx.beginPath();
+      ctx.arc(holeCx, holeCy, holeR, 0, Math.PI * 2);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = lineW;
+      ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = lineW;
+    ctx.strokeRect(lineW / 2, lineW / 2, canvasW - lineW, canvasH - lineW);
+  }
+
+  const qrModule = await import("qrcode");
+  const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
+  const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+    width: 300,
+    margin: 0,
+    color: { dark: "#000000", light: "#FFFFFF" },
+  });
+
+  const qrImg = await cargarImagen(qrDataUrl);
+  const qrPx = Math.round(medidas.qrSize * mmToPx);
+  ctx.drawImage(qrImg, Math.round(medidas.qrX * mmToPx), Math.round(medidas.qrY * mmToPx), qrPx, qrPx);
+
+  const textos = obtenerTextos(socio);
+  const medirTexto = (texto: string, tamPt: number): number => {
+    const tamPx = tamPt * dpi / 72;
+    ctx.font = `bold ${tamPx}px Impact`;
+    return ctx.measureText(texto).width / mmToPx;
+  };
+
+  const fontSizePt = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
+  const fontSizePx = fontSizePt * dpi / 72;
+  const lineSpacingPx = 2;
+  const lineH = fontSizePx + lineSpacingPx;
+
+  ctx.font = `bold ${fontSizePx}px Impact`;
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "top";
+
+  let textY = Math.round(medidas.textY * mmToPx);
+  for (const texto of textos) {
+    if (!texto) continue;
+    ctx.fillText(texto, Math.round(medidas.textX * mmToPx), textY);
+    textY += lineH;
+  }
+
+  return canvas.toDataURL("image/png");
+}

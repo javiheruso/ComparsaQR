@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { Download, Printer } from "lucide-react";
+import {
+  TipoFormato,
+  getMedidas,
+  getSociosPorPagina,
+  getNombreArchivo,
+  getNombrePlantilla,
+  cargarImagen,
+  cargarFuenteImpactPDF,
+  generarPaginaPDF,
+} from "@/lib/generar-con-formato";
 
 const TIPOS_VINCULACION = [
   { value: "socio", label: "Socio" },
@@ -24,6 +34,8 @@ interface Socio {
 export default function QrMasivoPage() {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [formato, setFormato] = useState<TipoFormato>("pulseras");
   const [selectedTipos, setSelectedTipos] = useState<Set<string>>(
     new Set(TIPOS_VINCULACION.map((t) => t.value))
   );
@@ -39,89 +51,38 @@ export default function QrMasivoPage() {
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) => {
       const next = new Set(prev);
-      if (next.has(tipo)) {
-        next.delete(tipo);
-      } else {
-        next.add(tipo);
-      }
+      if (next.has(tipo)) next.delete(tipo);
+      else next.add(tipo);
       return next;
     });
   };
 
-  const sociosFiltrados = socios.filter((s) => selectedTipos.has(s.tipoVinculacion));
+  const sociosFiltrados = socios.filter((s) =>
+    selectedTipos.has(s.tipoVinculacion)
+  );
 
   const generatePDF = async () => {
-    const { default: jsPDF } = await import("jspdf");
-    const qrModule = await import("qrcode");
+    setGenerating(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const qrModule = await import("qrcode");
+      const doc = new jsPDF("p", "mm", "a4");
 
-    const doc = new jsPDF("p", "mm", "a4");
+      const templateImg = await cargarImagen(getNombrePlantilla(formato));
+      const medidas = getMedidas(formato);
+      const cardsPerPage = getSociosPorPagina(formato);
 
-    const pageW = 210;
-    const pageH = 297;
-    const margin = 10;
-    const cardW = 50;
-    const cardH = 30;
-    const cols = 3;
-    const gapX = (pageW - margin * 2 - cols * cardW) / (cols - 1);
-    const gapY = 3;
-    const cardsPerPage = cols * Math.floor((pageH - margin * 2) / (cardH + gapY));
-
-    let current = 0;
-
-    for (const socio of sociosFiltrados) {
-      const pageIndex = current % cardsPerPage;
-      const col = pageIndex % cols;
-      const row = Math.floor(pageIndex / cols);
-
-      if (current > 0 && pageIndex === 0) {
-        doc.addPage();
+      for (let i = 0; i < sociosFiltrados.length; i += cardsPerPage) {
+        if (i > 0) doc.addPage();
+        await generarPaginaPDF(doc, formato, templateImg, sociosFiltrados, i, qrModule);
       }
 
-      const x = margin + col * (cardW + gapX);
-      const y = margin + row * (cardH + gapY);
-
-      const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
-      const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
-        width: 250,
-        margin: 1,
-        color: { dark: "#000000", light: "#FFFFFF" },
-      });
-
-      const qrSize = cardH - 6;
-      const qrX = x + 3;
-      const qrY = y + 3;
-      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-
-      const parts = socio.nombre.trim().split(/\s+/);
-      const nombreLinea = socio.apellido1
-        ? socio.nombre
-        : parts.slice(0, -1).join(" ");
-      const apellidoLinea = socio.apellido1 ?? (parts.length >= 2 ? parts[parts.length - 1] : "");
-      const textX = qrX + qrSize + 3;
-      const lineH = 4.5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.text(`Nº ${socio.numeroSocio}`, textX, y + 7);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.text(nombreLinea, textX, y + 7 + lineH);
-
-      if (apellidoLinea) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
-        doc.text(apellidoLinea, textX, y + 7 + lineH * 2);
-      }
-
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.1);
-      doc.rect(x, y, cardW, cardH);
-
-      current++;
+      doc.save(getNombreArchivo(formato));
+    } catch (err) {
+      console.error("Error generando PDF:", err);
+    } finally {
+      setGenerating(false);
     }
-
-    doc.save("pulseras-qr.pdf");
   };
 
   return (
@@ -132,10 +93,40 @@ export default function QrMasivoPage() {
 
       <div className="bg-white border border-border rounded-xl p-6 space-y-4">
         <p className="text-muted-foreground">
-          Genera un PDF con etiquetas de <strong>5×3 cm</strong> listas para
-          recortar y pegar en las pulseras. Puedes filtrar por tipo de vinculación
-          para incluir solo los socios que quieras.
+          Genera un PDF con las plantillas de{" "}
+          <strong>
+            {formato === "llaveros" ? "llaveros" : "pulseras"}
+          </strong>{" "}
+          listas para imprimir y recortar.
         </p>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">Formato de etiqueta:</p>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="radio"
+                name="formato"
+                value="pulseras"
+                checked={formato === "pulseras"}
+                onChange={() => setFormato("pulseras")}
+                className="w-4 h-4 accent-primary"
+              />
+              Pulseras (50×19mm, 39 uds.)
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="radio"
+                name="formato"
+                value="llaveros"
+                checked={formato === "llaveros"}
+                onChange={() => setFormato("llaveros")}
+                className="w-4 h-4 accent-primary"
+              />
+              Llaveros (60×30mm, 24 uds.)
+            </label>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">Filtrar por tipo de vinculación:</p>
@@ -173,11 +164,13 @@ export default function QrMasivoPage() {
 
             <button
               onClick={generatePDF}
-              disabled={sociosFiltrados.length === 0}
+              disabled={sociosFiltrados.length === 0 || generating}
               className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <Download className="w-5 h-5" />
-              Generar PDF con QRs ({sociosFiltrados.length})
+              {generating
+                ? "Generando..."
+                : `Generar PDF (${sociosFiltrados.length})`}
             </button>
           </div>
         )}

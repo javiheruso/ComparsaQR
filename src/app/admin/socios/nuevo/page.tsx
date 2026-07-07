@@ -3,6 +3,11 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  TipoFormato,
+  generarEtiquetaPNG,
+  getNombreArchivo,
+} from "@/lib/generar-con-formato";
 
 export default function NuevoSocioPage() {
   const router = useRouter();
@@ -18,6 +23,8 @@ export default function NuevoSocioPage() {
     id: number;
     nombre: string;
     numeroSocio: string;
+    apellido1: string | null;
+    apellido2: string | null;
     qrToken: string;
   } | null>(null);
 
@@ -68,19 +75,28 @@ export default function NuevoSocioPage() {
           <p className="text-xs text-muted-foreground break-all">{qrUrl}</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => {
-                const canvas = document.querySelector("canvas");
-                if (canvas) {
-                  const url = canvas.toDataURL("image/png");
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `qr-${nuevoSocio.numeroSocio}.png`;
-                  a.click();
-                }
+              onClick={async () => {
+                const url = await generarEtiquetaPNG("llaveros", nuevoSocio);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = getNombreArchivo("llaveros", nuevoSocio.numeroSocio);
+                a.click();
               }}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
             >
-              Descargar QR
+              Llavero
+            </button>
+            <button
+              onClick={async () => {
+                const url = await generarEtiquetaPNG("pulseras", nuevoSocio);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = getNombreArchivo("pulseras", nuevoSocio.numeroSocio);
+                a.click();
+              }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
+            >
+              Pulsera
             </button>
             <button
               onClick={() => {

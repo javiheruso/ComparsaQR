@@ -5,6 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { formatEuro } from "@/lib/utils";
 import { ArrowLeft, QrCode, RefreshCw } from "lucide-react";
+import {
+  TipoFormato,
+  generarEtiquetaPNG,
+  getNombreArchivo,
+} from "@/lib/generar-con-formato";
 
 interface Socio {
   id: number;
@@ -316,23 +321,32 @@ export default function SocioDetailPage() {
           <p className="text-xs text-muted-foreground text-center break-all">
             {qrUrl}
           </p>
-          <button
-            onClick={async () => {
-              const qrModule = await import("qrcode");
-              const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
-              const url = await qrModule.default.toDataURL(qrUrl, {
-                width: 500,
-                margin: 2,
-              });
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `qr-${socio.numeroSocio}.png`;
-              a.click();
-            }}
-            className="w-full py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-          >
-            Descargar QR
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const url = await generarEtiquetaPNG("llaveros", socio);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = getNombreArchivo("llaveros", socio.numeroSocio);
+                a.click();
+              }}
+              className="flex-1 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Llavero
+            </button>
+            <button
+              onClick={async () => {
+                const url = await generarEtiquetaPNG("pulseras", socio);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = getNombreArchivo("pulseras", socio.numeroSocio);
+                a.click();
+              }}
+              className="flex-1 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Pulsera
+            </button>
+          </div>
         </div>
 
         <div className="bg-white border border-border rounded-xl p-6 space-y-4">
