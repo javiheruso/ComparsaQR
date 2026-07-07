@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Download, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, Printer } from "lucide-react";
 import {
   TipoFormato,
   getSociosPorPagina,
@@ -31,6 +31,7 @@ export default function QrMasivoPage() {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingUrls, setGeneratingUrls] = useState(false);
   const [formato, setFormato] = useState<TipoFormato>("pulseras");
   const [selectedTipos, setSelectedTipos] = useState<Set<string>>(
     new Set(TIPOS_VINCULACION.map((t) => t.value))
@@ -76,6 +77,27 @@ export default function QrMasivoPage() {
       console.error("Error generando PDF:", err);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const generateXLSX = async () => {
+    setGeneratingUrls(true);
+    try {
+      const XLSX = await import("xlsx");
+      const data = sociosFiltrados.map((s) => ({
+        nombre: [s.nombre, s.apellido1, s.apellido2]
+          .filter(Boolean)
+          .join(" "),
+        url_qr: `${window.location.origin}/scanner/result?token=${s.qrToken}`,
+        numero_socio: s.numeroSocio,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Socios");
+      XLSX.writeFile(wb, "urls-qr.xlsx");
+    } finally {
+      setGeneratingUrls(false);
     }
   };
 
@@ -156,16 +178,28 @@ export default function QrMasivoPage() {
               )}
             </p>
 
-            <button
-              onClick={generatePDF}
-              disabled={sociosFiltrados.length === 0 || generating}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              <Download className="w-5 h-5" />
-              {generating
-                ? "Generando..."
-                : `Generar PDF (${sociosFiltrados.length})`}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={generatePDF}
+                disabled={sociosFiltrados.length === 0 || generating}
+                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <Download className="w-5 h-5" />
+                {generating
+                  ? "Generando..."
+                  : `Generar PDF (${sociosFiltrados.length})`}
+              </button>
+              <button
+                onClick={generateXLSX}
+                disabled={sociosFiltrados.length === 0 || generatingUrls}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <FileSpreadsheet className="w-5 h-5" />
+                {generatingUrls
+                  ? "Generando..."
+                  : `Generar URLs (${sociosFiltrados.length})`}
+              </button>
+            </div>
           </div>
         )}
       </div>
