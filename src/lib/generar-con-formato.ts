@@ -37,9 +37,9 @@ function calcularMargenes(cardW: number, cardH: number, cols: number, rows: numb
 
 const LLAVEROS: Medidas = (() => {
   const cardW = 60, cardH = 30, cols = 3, rows = 8, gap = 3;
-  const qrSize = 20.5;
+  const qrSize = 15.5;
   const qrX = 7;
-  const qrY = 2.25;
+  const qrY = 7.25;
   const textW = 20;
   const textH = 20;
   const textX = qrX + qrSize + 2.5;
