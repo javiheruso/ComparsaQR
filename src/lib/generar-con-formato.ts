@@ -37,13 +37,13 @@ function calcularMargenes(cardW: number, cardH: number, cols: number, rows: numb
 
 const LLAVEROS: Medidas = (() => {
   const cardW = 60, cardH = 30, cols = 3, rows = 8, gap = 3;
-  const qrSize = 15.5;
-  const qrX = 5;
-  const qrY = 5;
-  const textW = 20;
+  const qrSize = 16;
+  const qrX = 7.5;
+  const qrY = 7;
+  const textW = 26.5;
   const textH = 20;
-  const textX = qrX + qrSize + 2.5;
-  const textY = 10;
+  const textX = 26;
+  const textY = 8;
   const holeDiam = 3;
   const holeX = cardW - 3;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
