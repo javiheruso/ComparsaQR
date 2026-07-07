@@ -145,8 +145,12 @@ export default function AdminLayout({
           </button>
         </nav>
 
-        {/* ─── Overlay móvil ──────────────────────────── */
-        }
+        {/* Contenido principal */}
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
+    </div>
+  );
+}
 
 function AdminNavLink({
   href,

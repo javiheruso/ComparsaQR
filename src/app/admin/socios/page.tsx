@@ -37,13 +37,13 @@ export default function SociosPage() {
   const [recalculando, setRecalculando] = useState(false);
   const [recalcResultado, setRecalcResultado] = useState<string | null>(null);
 
-  const fetchSocios = useCallback(async (pagina?: number) => {
+  const fetchSocios = useCallback(async (pagina: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (tipoFilter) params.set("tipo", tipoFilter);
-      params.set("page", String(pagina ?? page));
+      params.set("page", String(pagina));
       params.set("limit", String(PAGE_SIZE));
       const res = await fetch(`/api/socios?${params}`);
       if (!res.ok) throw new Error("Error al cargar");
@@ -55,25 +55,27 @@ export default function SociosPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, tipoFilter, page]);
+  }, [search, tipoFilter]);
 
+  // Debounce search/filter: reset to page 1 and fetch
   useEffect(() => {
-    const abortController = new AbortController();
     const timer = setTimeout(() => {
       setPage(1);
       fetchSocios(1);
     }, 300);
-    return () => {
-      clearTimeout(timer);
-      abortController.abort();
-    };
+    return () => clearTimeout(timer);
   }, [search, tipoFilter]);
+
+  // Fetch when page changes (clicking pagination buttons)
+  useEffect(() => {
+    fetchSocios(page);
+  }, [page]);
 
   const togglePulsera = async (id: number, nombre: string, estadoActual: string, apellido1?: string, apellido2?: string) => {
     const nombreCompleto = `${nombre}${apellido1 ? ` ${apellido1}` : ""}${apellido2 ? ` ${apellido2}` : ""}`;
     if (!confirm(`¿${estadoActual === "activa" ? "Desactivar" : "Activar"} la pulsera de ${nombreCompleto}?`)) return;
     await fetch(`/api/socios/${id}/toggle-pulsera`, { method: "PATCH" });
-    fetchSocios();
+    fetchSocios(page);
   };
 
   const recalcularEdades = async () => {
@@ -84,7 +86,7 @@ export default function SociosPage() {
       const res = await fetch("/api/socios/recalcular-edades", { method: "POST" });
       const data = await res.json();
       setRecalcResultado(`${data.total} socio(s) reclasificado(s)`);
-      fetchSocios();
+      fetchSocios(page);
     } catch {
       setRecalcResultado("Error al recalcular");
     } finally {
