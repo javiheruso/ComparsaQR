@@ -9,7 +9,7 @@ export interface SessionData {
   scannerVerified: boolean;
   puntoVentaId?: number;
   puntoNombre?: string;
-  puntoPermiso?: string;
+  puntoPermiso?: PermisoPunto;
 }
 
 export type PermisoPunto = "barra" | "caja";

@@ -5,18 +5,10 @@ import { createSocioSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 async function generarNumeroSocio(): Promise<string> {
-  const lastSocio = await db.socio.findFirst({
-    orderBy: { id: "desc" },
-    select: { numeroSocio: true },
-  });
-
-  let nextNum = 1;
-  if (lastSocio) {
-    const match = lastSocio.numeroSocio.match(/s-(\d+)/i);
-    if (match) nextNum = parseInt(match[1]) + 1;
-  }
-
-  return `s-${String(nextNum).padStart(3, "0")}`;
+  const [result] = await db.$queryRawUnsafe<{ nextval: number }[]>(
+    `SELECT nextval('"Socio_numero_sequence"') AS nextval`
+  );
+  return `s-${String(result.nextval).padStart(3, "0")}`;
 }
 
 export async function GET(request: NextRequest) {

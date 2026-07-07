@@ -1,32 +1,31 @@
-const rateMap = new Map<string, { count: number; resetAt: number }>();
+import { db } from "./db";
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   maxAttempts = 10,
   windowMs = 60_000
-): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const entry = rateMap.get(key);
+): Promise<{ allowed: boolean; remaining: number }> {
+  const now = new Date();
 
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(key, { count: 1, resetAt: now + windowMs });
+  const record = await db.rateLimit.findUnique({ where: { key } });
+
+  if (!record || now > record.resetAt) {
+    await db.rateLimit.upsert({
+      where: { key },
+      create: { key, count: 1, resetAt: new Date(now.getTime() + windowMs) },
+      update: { count: 1, resetAt: new Date(now.getTime() + windowMs) },
+    });
     return { allowed: true, remaining: maxAttempts - 1 };
   }
 
-  entry.count++;
-  if (entry.count > maxAttempts) {
-    return { allowed: false, remaining: 0 };
-  }
+  const updated = await db.rateLimit.update({
+    where: { key },
+    data: { count: { increment: 1 } },
+  });
 
-  return { allowed: true, remaining: maxAttempts - entry.count };
-}
-
-// Cleanup stale entries every 5 minutes
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of rateMap) {
-      if (now > entry.resetAt) rateMap.delete(key);
-    }
-  }, 300_000);
+  const allowed = updated.count <= maxAttempts;
+  return {
+    allowed,
+    remaining: allowed ? maxAttempts - updated.count : 0,
+  };
 }

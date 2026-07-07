@@ -12,7 +12,7 @@ function shouldUseSecureCookie(request: Request) {
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    const rateCheck = checkRateLimit(`login:${ip}`);
+    const rateCheck = await checkRateLimit(`login:${ip}`);
     if (!rateCheck.allowed) {
       return apiError("Demasiados intentos. Intenta de nuevo en 1 minuto.", 429);
     }

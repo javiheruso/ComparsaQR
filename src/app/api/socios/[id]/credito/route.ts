@@ -19,31 +19,37 @@ export async function POST(
 
   try {
     const { id } = await params;
+    const socioIdNum = parseInt(id);
+    if (Number.isNaN(socioIdNum)) {
+      return apiError("ID de socio no válido", 400);
+    }
+
     const body = await request.json();
     const { cantidad, descripcion } = creditoSchema.parse(body);
 
-    const socio = await db.socio.findUnique({ where: { id: parseInt(id) } });
+    const socio = await db.socio.findUnique({ where: { id: socioIdNum } });
 
     if (!socio) {
       return apiError("Socio no encontrado", 404);
     }
 
-    const [updated] = await Promise.all([
-      db.socio.update({
-        where: { id: parseInt(id) },
+    const updated = await db.$transaction(async (tx) => {
+      const s = await tx.socio.update({
+        where: { id: socioIdNum },
         data: { credito: { increment: cantidad } },
-      }),
-      db.transaccion.create({
+      });
+      await tx.transaccion.create({
         data: {
-          socioId: parseInt(id),
+          socioId: socioIdNum,
           tipo: "carga",
           cantidad,
           descripcion: descripcion ?? null,
           operador: await getOperador(),
           puntoVentaId: await getPuntoVentaId(),
         },
-      }),
-    ]);
+      });
+      return s;
+    });
 
     return apiSuccess(updated);
   } catch (err) {

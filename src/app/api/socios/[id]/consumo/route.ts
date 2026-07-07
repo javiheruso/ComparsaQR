@@ -58,14 +58,14 @@ export async function POST(
     })
     .join(", ");
 
-  // ─── Invitado: cobro en memoria ─────────────────────
+  // ─── Invitado: cobro en BD ──────────────────────────
   if (isGuestId(socioId)) {
-    const guest = getGuestProfile();
+    const guest = await getGuestProfile();
     if (guest.credito < total) {
       return apiError("Crédito insuficiente", 400, { creditoActual: guest.credito });
     }
 
-    const ok = chargeGuest(total);
+    const ok = await chargeGuest(total);
     if (!ok) {
       return apiError("No se pudo completar el cobro.", 409);
     }

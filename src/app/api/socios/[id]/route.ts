@@ -13,8 +13,13 @@ export async function GET(
   }
 
   const { id } = await params;
+  const socioId = parseInt(id);
+  if (Number.isNaN(socioId)) {
+    return apiError("ID de socio no válido", 400);
+  }
+
   const socio = await db.socio.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: socioId },
   });
 
   if (!socio) {
@@ -35,11 +40,16 @@ export async function PUT(
 
   try {
     const { id } = await params;
+    const socioId = parseInt(id);
+    if (Number.isNaN(socioId)) {
+      return apiError("ID de socio no válido", 400);
+    }
+
     const body = await request.json();
     const data = updateSocioSchema.parse(body);
 
     const socio = await db.socio.update({
-      where: { id: parseInt(id) },
+      where: { id: socioId },
       data: {
         nombre: data.nombre,
         numeroSocio: data.numeroSocio,
@@ -67,8 +77,13 @@ export async function DELETE(
   }
 
   const { id } = await params;
+  const socioId = parseInt(id);
+  if (Number.isNaN(socioId)) {
+    return apiError("ID de socio no válido", 400);
+  }
+
   // Cascade delete handles Transaccion cleanup
-  await db.socio.delete({ where: { id: parseInt(id) } });
+  await db.socio.delete({ where: { id: socioId } });
 
   return apiSuccess({ success: true });
 }

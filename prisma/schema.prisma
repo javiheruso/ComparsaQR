@@ -56,6 +56,11 @@ model Socio {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   transacciones    Transaccion[]
+
+  @@index([nombre])
+  @@index([apellido1])
+  @@index([apellido2])
+  @@index([numeroSocio])
 }
 
 model Producto {
@@ -71,6 +76,21 @@ model Heartbeat {
   id        Int      @id @default(autoincrement())
   key       String   @unique
   timestamp DateTime @default(now())
+}
+
+model RateLimit {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  count     Int      @default(1)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}
+
+model GuestSession {
+  id           Int       @id @default(autoincrement())
+  balance      Float     @default(100)
+  lastChargeAt DateTime?
+  updatedAt    DateTime  @updatedAt
 }
 
 model Transaccion {

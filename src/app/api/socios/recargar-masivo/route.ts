@@ -13,32 +13,38 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = recargaMasivaSchema.parse(body);
 
-    const socios = await db.socio.findMany({
-      where: { tipoVinculacion: data.tipoVinculacion as any },
+    const operador = await getOperador();
+    const puntoVentaId = await getPuntoVentaId();
+    const descripcion = data.descripcion || `Recarga masiva: ${data.tipoVinculacion}`;
+
+    const result = await db.$transaction(async (tx) => {
+      const updateResult = await tx.socio.updateMany({
+        where: { tipoVinculacion: data.tipoVinculacion as any },
+        data: { credito: { increment: data.cantidad } },
+      });
+
+      const sociosActualizados = await tx.socio.findMany({
+        where: { tipoVinculacion: data.tipoVinculacion as any },
+        select: { id: true },
+      });
+
+      if (sociosActualizados.length > 0) {
+        await tx.transaccion.createMany({
+          data: sociosActualizados.map((s) => ({
+            socioId: s.id,
+            tipo: "carga" as const,
+            cantidad: data.cantidad,
+            descripcion,
+            operador,
+            puntoVentaId,
+          })),
+        });
+      }
+
+      return { procesados: sociosActualizados.length };
     });
 
-    let procesados = 0;
-    for (const socio of socios) {
-      await db.$transaction([
-        db.socio.update({
-          where: { id: socio.id },
-          data: { credito: { increment: data.cantidad } },
-        }),
-        db.transaccion.create({
-          data: {
-            socioId: socio.id,
-            tipo: "carga",
-            cantidad: data.cantidad,
-            descripcion: data.descripcion || `Recarga masiva: ${data.tipoVinculacion}`,
-            operador: await getOperador(),
-            puntoVentaId: await getPuntoVentaId(),
-          },
-        }),
-      ]);
-      procesados++;
-    }
-
-    return apiSuccess({ procesados, cantidad: data.cantidad });
+    return apiSuccess({ procesados: result.procesados, cantidad: data.cantidad });
   } catch (err) {
     return handleApiError(err, "Error al recargar");
   }

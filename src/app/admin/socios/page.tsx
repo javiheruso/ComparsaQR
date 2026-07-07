@@ -46,6 +46,7 @@ export default function SociosPage() {
       params.set("page", String(pagina ?? page));
       params.set("limit", String(PAGE_SIZE));
       const res = await fetch(`/api/socios?${params}`);
+      if (!res.ok) throw new Error("Error al cargar");
       const data = await res.json();
       setSocios(data.socios ?? []);
       setTotalPages(data.totalPages ?? 1);
@@ -57,16 +58,16 @@ export default function SociosPage() {
   }, [search, tipoFilter, page]);
 
   useEffect(() => {
+    const abortController = new AbortController();
     const timer = setTimeout(() => {
       setPage(1);
       fetchSocios(1);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
   }, [search, tipoFilter]);
-
-  useEffect(() => {
-    fetchSocios();
-  }, [page]);
 
   const togglePulsera = async (id: number, nombre: string, estadoActual: string, apellido1?: string, apellido2?: string) => {
     const nombreCompleto = `${nombre}${apellido1 ? ` ${apellido1}` : ""}${apellido2 ? ` ${apellido2}` : ""}`;
@@ -97,13 +98,23 @@ export default function SociosPage() {
     try {
       let data: Socio[];
       if (todos) {
-        const params = new URLSearchParams();
-        if (tipoFilter) params.set("tipo", tipoFilter);
-        params.set("limit", "9999");
-        params.set("search", encodeURIComponent(search));
-        const res = await fetch(`/api/socios?${params}`);
-        const json = await res.json();
-        data = json.socios ?? [];
+        data = [];
+        let pagina = 1;
+        const PAGE_EXPORT = 500;
+        let hasMore = true;
+        while (hasMore) {
+          const params = new URLSearchParams();
+          if (tipoFilter) params.set("tipo", tipoFilter);
+          if (search) params.set("search", search);
+          params.set("page", String(pagina));
+          params.set("limit", String(PAGE_EXPORT));
+          const res = await fetch(`/api/socios?${params}`);
+          const json = await res.json();
+          const items = json.socios ?? [];
+          data.push(...items);
+          hasMore = items.length === PAGE_EXPORT;
+          pagina++;
+        }
       } else {
         data = socios;
       }

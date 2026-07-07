@@ -22,6 +22,11 @@ export async function PUT(
 
   try {
     const { id } = await params;
+    const puntoId = parseInt(id);
+    if (Number.isNaN(puntoId)) {
+      return apiError("ID de punto no válido", 400);
+    }
+
     const body = await request.json();
     const data = updatePuntoSchema.parse(body);
 
@@ -36,7 +41,7 @@ export async function PUT(
     }
 
     await db.puntoVenta.update({
-      where: { id: parseInt(id) },
+      where: { id: puntoId },
       data: updateData,
     });
 
@@ -57,7 +62,12 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await db.puntoVenta.delete({ where: { id: parseInt(id) } });
+    const puntoId = parseInt(id);
+    if (Number.isNaN(puntoId)) {
+      return apiError("ID de punto no válido", 400);
+    }
+
+    await db.puntoVenta.delete({ where: { id: puntoId } });
     return apiSuccess({ success: true });
   } catch {
     return apiError("Error al eliminar punto", 500);

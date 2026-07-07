@@ -20,16 +20,10 @@ function splitApellidos(apellidos: string): [string, string?] {
 }
 
 async function generarNumeroSocio(): Promise<string> {
-  const last = await db.socio.findFirst({
-    orderBy: { id: "desc" },
-    select: { numeroSocio: true },
-  });
-  let next = 1;
-  if (last) {
-    const m = last.numeroSocio.match(/s-(\d+)/i);
-    if (m) next = parseInt(m[1]) + 1;
-  }
-  return `s-${String(next).padStart(3, "0")}`;
+  const [result] = await db.$queryRawUnsafe<{ nextval: number }[]>(
+    `SELECT nextval('"Socio_numero_sequence"') AS nextval`
+  );
+  return `s-${String(result.nextval).padStart(3, "0")}`;
 }
 
 export async function POST(request: Request) {

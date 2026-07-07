@@ -32,10 +32,7 @@ export default function ProductosPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchProductos();
-    }, 0);
-    return () => clearTimeout(timer);
+    fetchProductos();
   }, [fetchProductos]);
 
   const resetForm = () => {

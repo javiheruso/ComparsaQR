@@ -13,8 +13,13 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const socioId = parseInt(id);
+  if (Number.isNaN(socioId)) {
+    return apiError("ID de socio no válido", 400);
+  }
+
   const socio = await db.socio.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: socioId },
   });
 
   if (!socio) {
@@ -22,7 +27,7 @@ export async function PATCH(
   }
 
   const updated = await db.socio.update({
-    where: { id: parseInt(id) },
+    where: { id: socioId },
     data: {
       qrToken: randomUUID(),
       estadoPulsera: "perdida" as const,

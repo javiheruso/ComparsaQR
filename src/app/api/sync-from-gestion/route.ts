@@ -155,59 +155,22 @@ export async function POST() {
           });
         }
 
-        if (existente) {
-          // Si el DNI tiene que cambiar y ya está en otro socio, quitarlo de allí
-          if (dniNorm && normalizarDNI(existente.dni) !== dniNorm) {
-            await db.$executeRawUnsafe(
-              `UPDATE "Socio" SET dni = NULL WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 AND id != $2`,
-              dniNorm, existente.id
-            );
-            for (const [key, val] of porDni) {
-              if (key === dniNorm && val.id !== existente.id) porDni.delete(key);
-            }
-          }
-
-          const apellidosSplit = gs.apellidos.trim().split(/\s+/);
-          const ape1 = apellidosSplit[0] || "";
-          const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;
-
-          await db.socio.update({
-            where: { id: existente.id },
-            data: {
-              numeroSocio,
-              nombre: gs.nombre,
-              apellido1: ape1,
-              apellido2: ape2,
-              dni: dniNorm,
-              tipoVinculacion,
-              fechaNacimiento: fechaNac,
-              estadoPulsera: activo ? "activa" : "inactiva",
-            },
-          });
-
-          // Refrescar índices locales
-          if (dniNorm) porDni.set(dniNorm, { ...existente, numeroSocio, dni: dniNorm });
-          else if (existente.dni) porDni.delete(normalizarDNI(existente.dni)!);
-
-          actualizados++;
-        } else {
+        if (!existente && dniNorm) {
           // Buscar por DNI normalizado en BD por si existe con otro nº de socio
-          if (!existente && dniNorm) {
-            const dupe = await db.$queryRawUnsafe<{ id: number }[]>(
-              `SELECT id FROM "Socio" WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 LIMIT 1`,
-              dniNorm
-            );
-            if (dupe.length > 0) {
-              const found = await db.socio.findUnique({
-                where: { id: dupe[0].id },
-                select: {
-                  id: true, numeroSocio: true, dni: true,
-                  nombre: true, apellido1: true, apellido2: true,
-                  credito: true, estadoPulsera: true,
-                },
-              });
-              if (found) existente = found;
-            }
+          const dupe = await db.$queryRawUnsafe<{ id: number }[]>(
+            `SELECT id FROM "Socio" WHERE REPLACE(REPLACE(dni, ' ', ''), '-', '') = $1 LIMIT 1`,
+            dniNorm
+          );
+          if (dupe.length > 0) {
+            const found = await db.socio.findUnique({
+              where: { id: dupe[0].id },
+              select: {
+                id: true, numeroSocio: true, dni: true,
+                nombre: true, apellido1: true, apellido2: true,
+                credito: true, estadoPulsera: true,
+              },
+            });
+            if (found) existente = found;
           }
         }
 

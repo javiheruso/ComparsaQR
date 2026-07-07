@@ -14,10 +14,15 @@ export async function PUT(
 
   try {
     const { id } = await params;
+    const productoId = parseInt(id);
+    if (Number.isNaN(productoId)) {
+      return apiError("ID de producto no válido", 400);
+    }
+
     const body = await request.json();
     const data = productoSchema.parse(body);
     const producto = await db.producto.update({
-      where: { id: parseInt(id) },
+      where: { id: productoId },
       data,
     });
     return apiSuccess(producto);
@@ -37,7 +42,12 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await db.producto.delete({ where: { id: parseInt(id) } });
+    const productoId = parseInt(id);
+    if (Number.isNaN(productoId)) {
+      return apiError("ID de producto no válido", 400);
+    }
+
+    await db.producto.delete({ where: { id: productoId } });
     return apiSuccess({ success: true });
   } catch {
     return apiError("Error al eliminar producto", 500);

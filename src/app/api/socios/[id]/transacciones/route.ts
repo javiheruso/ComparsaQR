@@ -12,8 +12,13 @@ export async function GET(
   }
 
   const { id } = await params;
+  const socioId = parseInt(id);
+  if (Number.isNaN(socioId)) {
+    return apiError("ID de socio no válido", 400);
+  }
+
   const transacciones = await db.transaccion.findMany({
-    where: { socioId: parseInt(id) },
+    where: { socioId },
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {

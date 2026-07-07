@@ -12,17 +12,22 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const socioId = parseInt(id);
+  if (Number.isNaN(socioId)) {
+    return apiError("ID de socio no válido", 400);
+  }
+
   const socio = await db.socio.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: socioId },
   });
 
   if (!socio) {
     return apiError("Socio no encontrado", 404);
   }
 
-  const nuevoEstado: "activa" | "inactiva" = socio.estadoPulsera === "activa" ? "inactiva" : "activa";
+  const nuevoEstado = socio.estadoPulsera === "activa" ? "inactiva" as const : "activa" as const;
   const updated = await db.socio.update({
-    where: { id: parseInt(id) },
+    where: { id: socioId },
     data: { estadoPulsera: nuevoEstado },
   });
 
