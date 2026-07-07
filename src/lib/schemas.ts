@@ -38,12 +38,6 @@ export const consumoSchema = z.object({
     .max(50),
 });
 
-export const recargaMasivaSchema = z.object({
-  tipoVinculacion: z.enum(["socio", "hijos_mayores", "socios_menores", "hijo_socio"]),
-  cantidad: z.number().positive(),
-  descripcion: z.string().optional(),
-});
-
 export const creditoSchema = z.object({
   cantidad: z.number().positive(),
   descripcion: z.string().optional().nullable(),

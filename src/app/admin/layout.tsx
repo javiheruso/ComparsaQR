@@ -75,9 +75,6 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/qr-masivo" onClick={() => setMenuOpen(false)}>
             QR Masivo
           </AdminNavLink>
-          <AdminNavLink href="/admin/recargar" onClick={() => setMenuOpen(false)}>
-            Recarga Masiva
-          </AdminNavLink>
           <div className="flex-1" />
           <AdminNavLink href="/admin/login" onClick={() => setMenuOpen(false)}>
             Cambiar Sesión
@@ -136,9 +133,6 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/qr-masivo" onClick={() => setMenuOpen(false)}>
             QR Masivo
           </AdminNavLink>
-          <AdminNavLink href="/admin/recargar" onClick={() => setMenuOpen(false)}>
-            Recarga Masiva
-          </AdminNavLink>
           <div className="flex-1" />
           <AdminNavLink href="/admin/login" onClick={() => setMenuOpen(false)}>
             Cambiar Sesión
@@ -151,12 +145,8 @@ export default function AdminLayout({
           </button>
         </nav>
 
-        {/* Contenido principal */}
-        <main className="flex-1 overflow-auto">{children}</main>
-      </div>
-    </div>
-  );
-}
+        {/* ─── Overlay móvil ──────────────────────────── */
+        }
 
 function AdminNavLink({
   href,
