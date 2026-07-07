@@ -4,12 +4,8 @@ import { useState, useEffect } from "react";
 import { Download, Printer } from "lucide-react";
 import {
   TipoFormato,
-  getMedidas,
   getSociosPorPagina,
   getNombreArchivo,
-  getNombrePlantilla,
-  cargarImagen,
-  cargarFuenteImpactPDF,
   generarPaginaPDF,
 } from "@/lib/generar-con-formato";
 
@@ -68,13 +64,11 @@ export default function QrMasivoPage() {
       const qrModule = await import("qrcode");
       const doc = new jsPDF("p", "mm", "a4");
 
-      const templateImg = await cargarImagen(getNombrePlantilla(formato));
-      const medidas = getMedidas(formato);
       const cardsPerPage = getSociosPorPagina(formato);
 
       for (let i = 0; i < sociosFiltrados.length; i += cardsPerPage) {
         if (i > 0) doc.addPage();
-        await generarPaginaPDF(doc, formato, templateImg, sociosFiltrados, i, qrModule);
+        await generarPaginaPDF(doc, formato, sociosFiltrados, i, qrModule);
       }
 
       doc.save(getNombreArchivo(formato));

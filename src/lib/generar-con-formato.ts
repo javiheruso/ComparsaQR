@@ -38,14 +38,14 @@ function calcularMargenes(cardW: number, cardH: number, cols: number, rows: numb
 const LLAVEROS: Medidas = (() => {
   const cardW = 60, cardH = 30, cols = 3, rows = 8, gap = 3;
   const qrSize = 25.5;
-  const qrX = 2;
-  const qrY = (cardH - qrSize) / 2;
+  const qrX = 7;
+  const qrY = 2.25 - 5;
   const textW = 20;
   const textH = 20;
   const textX = qrX + qrSize + 2.5;
-  const textY = (cardH - textH) / 2;
-  const holeDiam = 4;
-  const holeX = cardW - 4.5;
+  const textY = 10;
+  const holeDiam = 3;
+  const holeX = cardW - 3;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
   return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
 })();
@@ -77,10 +77,6 @@ export function getSociosPorPagina(formato: TipoFormato): number {
 export function getNombreArchivo(formato: TipoFormato, numeroSocio?: string): string {
   const prefijo = formato === "llaveros" ? "llavero" : "pulsera";
   return numeroSocio ? `${prefijo}-${numeroSocio}.png` : `${prefijo}s-qr.pdf`;
-}
-
-export function getNombrePlantilla(formato: TipoFormato): string {
-  return `/formatos/${formato}.jpg`;
 }
 
 export function obtenerTextos(socio: Socio): string[] {
@@ -121,16 +117,6 @@ export function calcularFontSize(
   return 5;
 }
 
-export async function cargarImagen(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
 export async function cargarFuenteImpactPDF(doc: any): Promise<void> {
   const resp = await fetch("/fonts/impact.ttf");
   const buffer = await resp.arrayBuffer();
@@ -142,10 +128,27 @@ export async function cargarFuenteImpactPDF(doc: any): Promise<void> {
   doc.addFont("Impact.ttf", "Impact", "normal");
 }
 
+function dibujarFondoEtiquetaPDF(doc: any, x: number, y: number, medidas: Medidas): void {
+  const lineW = 0.3;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(lineW);
+
+  if (medidas.cardH === LLAVEROS.cardH) {
+    const r = medidas.cardH / 2;
+    doc.roundedRect(x, y, medidas.cardW, medidas.cardH, r, r);
+
+    if (medidas.holeDiam > 0) {
+      const holeR = medidas.holeDiam / 2;
+      doc.circle(x + medidas.holeX, y + medidas.cardH / 2, holeR);
+    }
+  } else {
+    doc.rect(x, y, medidas.cardW, medidas.cardH);
+  }
+}
+
 export async function generarPaginaPDF(
   doc: any,
   formato: TipoFormato,
-  templateImg: HTMLImageElement,
   socios: Socio[],
   startIndex: number,
   qrModule: any
@@ -159,12 +162,14 @@ export async function generarPaginaPDF(
     const socioIdx = startIndex + i;
     if (socioIdx >= socios.length) break;
 
-    if (i === 0) {
-      doc.addImage(templateImg, "JPEG", 0, 0, 210, 297);
-    }
-
     const socio = socios[socioIdx];
     const pos = getPosicionEtiqueta(i, medidas);
+
+    if (i === 0) {
+      dibujarFondoEtiquetaPDF(doc, pos.x, pos.y, medidas);
+    } else {
+      dibujarFondoEtiquetaPDF(doc, pos.x, pos.y, medidas);
+    }
 
     const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
     const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
@@ -173,7 +178,11 @@ export async function generarPaginaPDF(
       color: { dark: "#000000", light: "#FFFFFF" },
     });
 
-    doc.addImage(qrDataUrl, "PNG", pos.x + medidas.qrX, pos.y + medidas.qrY, medidas.qrSize, medidas.qrSize);
+    const qrClampY = Math.max(0, pos.y + medidas.qrY);
+    const qrClampH = Math.min(medidas.qrSize, pos.y + medidas.cardH - qrClampY);
+    if (qrClampH > 0) {
+      doc.addImage(qrDataUrl, "PNG", pos.x + medidas.qrX, qrClampY, medidas.qrSize, qrClampH, undefined, "FAST");
+    }
 
     const textos = obtenerTextos(socio);
     const medirTexto = (texto: string, tam: number): number => {
@@ -257,9 +266,13 @@ export async function generarEtiquetaPNG(
     color: { dark: "#000000", light: "#FFFFFF" },
   });
 
-  const qrImg = await cargarImagen(qrDataUrl);
+  const qrImg = new Image();
+  qrImg.src = qrDataUrl;
+  await new Promise((resolve) => { qrImg.onload = resolve; });
+
   const qrPx = Math.round(medidas.qrSize * mmToPx);
-  ctx.drawImage(qrImg, Math.round(medidas.qrX * mmToPx), Math.round(medidas.qrY * mmToPx), qrPx, qrPx);
+  const qrPxY = Math.round(medidas.qrY * mmToPx);
+  ctx.drawImage(qrImg, Math.round(medidas.qrX * mmToPx), qrPxY, qrPx, qrPx);
 
   const textos = obtenerTextos(socio);
   const medirTexto = (texto: string, tamPt: number): number => {
