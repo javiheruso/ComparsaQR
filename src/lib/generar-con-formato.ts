@@ -105,9 +105,9 @@ export function calcularFontSize(
   medirTexto: (texto: string, tamano: number) => number
 ): number {
   const ptToMm = 0.353;
-  let fontSize = 9;
+  let fontSize = 12;
   const lineSpacing = 0.5;
-  for (; fontSize >= 4; fontSize -= 0.5) {
+  for (; fontSize >= 5; fontSize -= 0.5) {
     const lineH = fontSize * ptToMm + lineSpacing;
     const totalAltura = textos.length * lineH;
     let cabe = totalAltura <= altoMaxMm;
@@ -118,7 +118,7 @@ export function calcularFontSize(
     }
     if (cabe) return fontSize;
   }
-  return 4;
+  return 5;
 }
 
 export async function cargarImagen(url: string): Promise<HTMLImageElement> {
@@ -153,6 +153,8 @@ export async function generarPaginaPDF(
   const medidas = getMedidas(formato);
   const cardsPerPage = medidas.cols * medidas.rows;
 
+  await cargarFuenteImpactPDF(doc);
+
   for (let i = 0; i < cardsPerPage; i++) {
     const socioIdx = startIndex + i;
     if (socioIdx >= socios.length) break;
@@ -173,12 +175,11 @@ export async function generarPaginaPDF(
 
     doc.addImage(qrDataUrl, "PNG", pos.x + medidas.qrX, pos.y + medidas.qrY, medidas.qrSize, medidas.qrSize);
 
-    await cargarFuenteImpactPDF(doc);
     const textos = obtenerTextos(socio);
     const medirTexto = (texto: string, tam: number): number => {
       doc.setFont("Impact", "normal");
       doc.setFontSize(tam);
-      return doc.getTextWidth(texto);
+      return doc.getTextWidth(texto) * 0.85;
     };
 
     const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
@@ -264,7 +265,7 @@ export async function generarEtiquetaPNG(
   const medirTexto = (texto: string, tamPt: number): number => {
     const tamPx = tamPt * dpi / 72;
     ctx.font = `bold ${tamPx}px Impact`;
-    return ctx.measureText(texto).width / mmToPx;
+    return ctx.measureText(texto).width / mmToPx * 1.15;
   };
 
   const fontSizePt = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
