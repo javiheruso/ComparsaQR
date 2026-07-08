@@ -36,16 +36,16 @@ function calcularMargenes(cardW: number, cardH: number, cols: number, rows: numb
 }
 
 const LLAVEROS: Medidas = (() => {
-  const cardW = 60, cardH = 30, cols = 3, rows = 8, gap = 3;
-  const qrSize = 16;
-  const qrX = 7.5;
-  const qrY = 7;
+  const cardW = 60, cardH = 25, cols = 3, rows = 8, gap = 3;
+  const qrSize = 21;
+  const qrX = 8;
+  const qrY = 2;
   const textW = 26.5;
   const textH = 20;
-  const textX = 26;
-  const textY = 8;
+  const textX = 30;
+  const textY = 3;
   const holeDiam = 3;
-  const holeX = cardW - 3;
+  const holeX = cardW - 5;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
   return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
 })();
@@ -80,11 +80,12 @@ export function getNombreArchivo(formato: TipoFormato, numeroSocio?: string): st
 }
 
 export function obtenerTextos(socio: Socio): string[] {
-  const apellidos = [socio.apellido1, socio.apellido2].filter(Boolean).join(" ");
   const lineas = [`Nº ${socio.numeroSocio}`, socio.nombre];
-  if (apellidos) lineas.push(apellidos);
-  return lineas;
-}
+
+  if (socio.apellido1) lineas.push(socio.apellido1);
+  if (socio.apellido2) lineas.push(socio.apellido2);
+
+  return lineas;}
 
 function getPosicionEtiqueta(index: number, medidas: Medidas) {
   const col = index % medidas.cols;
