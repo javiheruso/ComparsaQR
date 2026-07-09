@@ -265,24 +265,15 @@ export async function generarPaginaPDFFilada(
     }
 
     const textos = obtenerTextos(socio);
-    const medirTexto = (texto: string, tam: number): number => {
-      doc.setFont("Impact", "normal");
-      doc.setFontSize(tam);
-      return doc.getTextWidth(texto) * 0.85;
-    };
-
-    const fontSize = calcularFontSize(textos, m.textW, m.textH, medirTexto);
-    const ptToMm = 0.353;
-    const lineH = fontSize * ptToMm + 1.5;
+    const textX = x + m.qrX + m.qrSize + 0.5;
+    const textY = y + m.qrY + 0.5;
 
     doc.setFont("Impact", "normal");
-    doc.setFontSize(fontSize);
+    doc.setFontSize(7);
 
-    let textY = y + m.textY + fontSize * ptToMm;
-    for (const texto of textos) {
-      if (!texto) continue;
-      doc.text(texto, x + m.textX, textY);
-      textY += lineH;
+    for (let li = 0; li < textos.length; li++) {
+      if (!textos[li]) continue;
+      doc.text(textos[li], textX, textY + li * 3.5);
     }
   }
 }
