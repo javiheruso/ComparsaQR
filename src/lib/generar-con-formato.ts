@@ -266,7 +266,7 @@ export async function generarPaginaPDFFilada(
 
     const textos = obtenerTextos(socio);
     const textX = x + m.qrX + m.qrSize + 0.5;
-    const textY = y + m.qrY + 0.5;
+    const textY = y + m.qrY;
     const anchoDisp = m.cardW - m.qrX - m.qrSize - 0.5;
     const altoDisp = m.cardH - m.qrY - 0.5;
 
