@@ -13,6 +13,12 @@ interface GestionSocio {
   apellidos: string;
   tipo_vinculacion: "socio" | "hijo_socio" | "hijos_mayores" | "socios_menores";
   fecha_nacimiento: string | null;
+  filada_id: number | null;
+}
+
+interface GestionFilada {
+  id: number;
+  nombre: string;
 }
 
 interface Membresia {
@@ -59,8 +65,16 @@ export async function POST() {
 
   try {
     const gestionSocios: GestionSocio[] = await fetchGestion(
-      `socios?select=id,numero_socio,dni,nombre,apellidos,tipo_vinculacion,fecha_nacimiento`
+      `socios?select=id,numero_socio,dni,nombre,apellidos,tipo_vinculacion,fecha_nacimiento,filada_id`
     );
+
+    const filadas: GestionFilada[] = await fetchGestion(
+      `filadas?select=id,nombre`
+    );
+    const filadaMap = new Map<number, string>();
+    for (const f of filadas) {
+      filadaMap.set(f.id, f.nombre);
+    }
 
     const ejercicios: { id: string }[] = await fetchGestion(
       `ejercicios?select=id&order=created_at.desc&limit=1`
@@ -123,7 +137,7 @@ export async function POST() {
     let actualizados = 0;
     let creados = 0;
     let desactivados = 0;
-    let noEncontrados = 0;
+    const noEncontrados = 0;
     const errores: string[] = [];
 
     for (const gs of gestionSocios) {
@@ -190,6 +204,8 @@ export async function POST() {
           const ape1 = apellidosSplit[0] || "";
           const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;
 
+          const filada = gs.filada_id != null ? filadaMap.get(gs.filada_id) ?? null : null;
+
           await db.socio.update({
             where: { id: existente.id },
             data: {
@@ -201,6 +217,7 @@ export async function POST() {
               tipoVinculacion,
               fechaNacimiento: fechaNac,
               estadoPulsera: activo ? "activa" : "inactiva",
+              filada,
             },
           });
 
@@ -214,6 +231,8 @@ export async function POST() {
           const ape1 = apellidosSplit[0] || "";
           const ape2 = apellidosSplit.length > 1 ? apellidosSplit.slice(1).join(" ") : null;
 
+          const filada = gs.filada_id != null ? filadaMap.get(gs.filada_id) ?? null : null;
+
           const nuevo = await db.socio.create({
             data: {
               numeroSocio,
@@ -225,6 +244,7 @@ export async function POST() {
               fechaNacimiento: fechaNac,
               credito,
               estadoPulsera: activo ? "activa" : "inactiva",
+              filada,
             },
           });
 

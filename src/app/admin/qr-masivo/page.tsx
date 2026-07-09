@@ -25,6 +25,7 @@ interface Socio {
   tipoVinculacion: string;
   credito: number;
   qrToken: string;
+  filada: string | null;
 }
 
 export default function QrMasivoPage() {
@@ -54,9 +55,14 @@ export default function QrMasivoPage() {
     });
   };
 
-  const sociosFiltrados = socios.filter((s) =>
-    selectedTipos.has(s.tipoVinculacion)
-  );
+  const sociosFiltrados = socios
+    .filter((s) => selectedTipos.has(s.tipoVinculacion))
+    .sort((a, b) => {
+      if (a.filada == null && b.filada == null) return 0;
+      if (a.filada == null) return 1;
+      if (b.filada == null) return -1;
+      return a.filada.localeCompare(b.filada);
+    });
 
   const generatePDF = async () => {
     setGenerating(true);

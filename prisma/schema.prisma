@@ -53,6 +53,7 @@ model Socio {
   credito          Float            @default(0)
   estadoPulsera    EstadoPulsera    @default(activa)
   qrToken          String           @unique @default(uuid())
+  filada           String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   transacciones    Transaccion[]
