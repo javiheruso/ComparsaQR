@@ -7,6 +7,8 @@ import {
   getSociosPorPagina,
   getNombreArchivo,
   generarPaginaPDF,
+  generarPaginaPDFFilada,
+  getSociosPorPaginaFilada,
 } from "@/lib/generar-con-formato";
 
 const TIPOS_VINCULACION = [
@@ -74,8 +76,6 @@ export default function QrMasivoPage() {
       const qrModule = await import("qrcode");
       const doc = new jsPDF("p", "mm", "a4");
 
-      const cardsPerPage = getSociosPorPagina(formato);
-
       // Agrupar por filada para insertar saltos de página entre grupos
       const grupos: Socio[][] = [];
       let grupoActual: Socio[] = [];
@@ -91,12 +91,20 @@ export default function QrMasivoPage() {
       }
       if (grupoActual.length > 0) grupos.push(grupoActual);
 
+      const renderPage = formato === "llaveros" ? generarPaginaPDFFilada : generarPaginaPDF;
+      const cardsPerPage = formato === "llaveros" ? getSociosPorPaginaFilada(formato) : getSociosPorPagina(formato);
+
       let primeraPagina = true;
       for (const grupo of grupos) {
+        const filadaNombre = grupo[0]?.filada ?? null;
         for (let i = 0; i < grupo.length; i += cardsPerPage) {
           if (!primeraPagina) doc.addPage();
           primeraPagina = false;
-          await generarPaginaPDF(doc, formato, grupo, i, qrModule);
+          if (formato === "llaveros") {
+            await generarPaginaPDFFilada(doc, formato, grupo, i, qrModule, filadaNombre);
+          } else {
+            await generarPaginaPDF(doc, formato, grupo, i, qrModule);
+          }
         }
       }
 

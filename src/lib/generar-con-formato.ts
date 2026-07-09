@@ -208,6 +208,85 @@ export async function generarPaginaPDF(
   }
 }
 
+const FILADA_ROWS = 5;
+
+export function getSociosPorPaginaFilada(formato: TipoFormato): number {
+  const m = getMedidas(formato);
+  const maxCols = Math.floor((210 + m.gap) / (m.cardW + m.gap));
+  return FILADA_ROWS * maxCols;
+}
+
+export async function generarPaginaPDFFilada(
+  doc: any,
+  formato: TipoFormato,
+  socios: Socio[],
+  startIndex: number,
+  qrModule: any,
+  filadaNombre: string | null
+): Promise<void> {
+  const m = getMedidas(formato);
+  const pageW = 210;
+  const pageH = 297;
+  const itemsOnPage = Math.min(socios.length - startIndex, getSociosPorPaginaFilada(formato));
+  const cols = Math.ceil(itemsOnPage / FILADA_ROWS);
+  const marginLeft = (pageW - cols * m.cardW - (cols - 1) * m.gap) / 2;
+  const totalH = FILADA_ROWS * m.cardH + (FILADA_ROWS - 1) * m.gap;
+  const marginTop = Math.max(16, (pageH - totalH) / 2);
+
+  await cargarFuenteImpactPDF(doc);
+
+  if (filadaNombre) {
+    doc.setFont("Impact", "normal");
+    doc.setFontSize(11);
+    doc.text(filadaNombre, marginLeft, marginTop - 5);
+  }
+
+  for (let i = 0; i < itemsOnPage; i++) {
+    const socioIdx = startIndex + i;
+    const socio = socios[socioIdx];
+    const col = Math.floor(i / FILADA_ROWS);
+    const row = i % FILADA_ROWS;
+    const x = marginLeft + col * (m.cardW + m.gap);
+    const y = marginTop + row * (m.cardH + m.gap);
+
+    dibujarFondoEtiquetaPDF(doc, x, y, m);
+
+    const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
+    const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+      width: 250,
+      margin: 1,
+      color: { dark: "#000000", light: "#FFFFFF" },
+    });
+
+    const qrClampY = Math.max(0, y + m.qrY);
+    const qrClampH = Math.min(m.qrSize, y + m.cardH - qrClampY);
+    if (qrClampH > 0) {
+      doc.addImage(qrDataUrl, "PNG", x + m.qrX, qrClampY, m.qrSize, qrClampH, undefined, "FAST");
+    }
+
+    const textos = obtenerTextos(socio);
+    const medirTexto = (texto: string, tam: number): number => {
+      doc.setFont("Impact", "normal");
+      doc.setFontSize(tam);
+      return doc.getTextWidth(texto) * 0.85;
+    };
+
+    const fontSize = calcularFontSize(textos, m.textW, m.textH, medirTexto);
+    const ptToMm = 0.353;
+    const lineSpacing = 0.5;
+
+    doc.setFont("Impact", "normal");
+    doc.setFontSize(fontSize);
+
+    let textY = y + m.textY + fontSize * ptToMm;
+    for (const texto of textos) {
+      if (!texto) continue;
+      doc.text(texto, x + m.textX, textY);
+      textY += fontSize * ptToMm + lineSpacing;
+    }
+  }
+}
+
 export async function generarEtiquetaPNG(
   formato: TipoFormato,
   socio: Socio,
