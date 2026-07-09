@@ -76,9 +76,28 @@ export default function QrMasivoPage() {
 
       const cardsPerPage = getSociosPorPagina(formato);
 
-      for (let i = 0; i < sociosFiltrados.length; i += cardsPerPage) {
-        if (i > 0) doc.addPage();
-        await generarPaginaPDF(doc, formato, sociosFiltrados, i, qrModule);
+      // Agrupar por filada para insertar saltos de página entre grupos
+      const grupos: Socio[][] = [];
+      let grupoActual: Socio[] = [];
+      let filadaActual: string | null = null;
+
+      for (const socio of sociosFiltrados) {
+        if (socio.filada !== filadaActual && grupoActual.length > 0) {
+          grupos.push(grupoActual);
+          grupoActual = [];
+        }
+        filadaActual = socio.filada;
+        grupoActual.push(socio);
+      }
+      if (grupoActual.length > 0) grupos.push(grupoActual);
+
+      let primeraPagina = true;
+      for (const grupo of grupos) {
+        for (let i = 0; i < grupo.length; i += cardsPerPage) {
+          if (!primeraPagina) doc.addPage();
+          primeraPagina = false;
+          await generarPaginaPDF(doc, formato, grupo, i, qrModule);
+        }
       }
 
       doc.save(getNombreArchivo(formato));
