@@ -9,6 +9,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const redirectTo = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("redirect") || "/admin"
+    : "/admin";
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -22,7 +26,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        window.location.href = "/admin";
+        window.location.href = redirectTo;
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Contraseña incorrecta");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSession } from "@/lib/auth";
 
 const PUBLIC_PATHS = [
   "/admin/login",
@@ -13,9 +14,8 @@ const PUBLIC_PATHS = [
   "/",
 ];
 
-export default function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get("comparsa_admin_session");
 
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
@@ -25,18 +25,17 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protect admin routes - check cookie exists and has meaningful length
-  if (pathname.startsWith("/admin")) {
-    if (!sessionCookie?.value || sessionCookie.value.length < 20) {
+  const session = await getSession();
+  const isAuthenticated = session.isLoggedIn || session.scannerVerified;
+
+  if (!isAuthenticated) {
+    if (pathname.startsWith("/admin")) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
-  }
 
-  // Protect API routes (except public ones)
-  if (pathname.startsWith("/api")) {
-    if (!sessionCookie?.value || sessionCookie.value.length < 20) {
+    if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
   }

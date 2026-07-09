@@ -47,6 +47,7 @@ export default function NuevoSocioPage() {
         }),
       });
 
+      if (res.status === 401) { window.location.href = "/admin/login"; return; }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Error al crear socio");

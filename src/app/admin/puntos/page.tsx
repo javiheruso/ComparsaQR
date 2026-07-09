@@ -25,6 +25,7 @@ export default function PuntosPage() {
     setError(null);
     try {
       const res = await fetch("/api/puntos");
+      if (res.status === 401) { window.location.href = "/admin/login"; return; }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Error al cargar puntos");
@@ -64,34 +65,38 @@ export default function PuntosPage() {
     if (editPunto) {
       const body: Record<string, unknown> = { nombre, permiso };
       if (password) body.password = password;
-      await fetch(`/api/puntos/${editPunto.id}`, {
+      const res = await fetch(`/api/puntos/${editPunto.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (res.status === 401) { window.location.href = "/admin/login"; return; }
     } else {
-      await fetch("/api/puntos", {
+      const res = await fetch("/api/puntos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, password, permiso }),
       });
+      if (res.status === 401) { window.location.href = "/admin/login"; return; }
     }
     resetForm();
     fetchPuntos();
   };
 
   const toggleActivo = async (p: Punto) => {
-    await fetch(`/api/puntos/${p.id}`, {
+    const res = await fetch(`/api/puntos/${p.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ activo: !p.activo }),
     });
+    if (res.status === 401) { window.location.href = "/admin/login"; return; }
     fetchPuntos();
   };
 
   const deletePunto = async (id: number, nombre: string) => {
     if (!confirm(`¿Eliminar "${nombre}"? Las transacciones de este punto no se perderán.`)) return;
-    await fetch(`/api/puntos/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/puntos/${id}`, { method: "DELETE" });
+    if (res.status === 401) { window.location.href = "/admin/login"; return; }
     fetchPuntos();
   };
 
