@@ -273,7 +273,7 @@ export async function generarPaginaPDFFilada(
 
     const fontSize = calcularFontSize(textos, m.textW, m.textH, medirTexto);
     const ptToMm = 0.353;
-    const lineSpacing = 0.5;
+    const lineH = fontSize * ptToMm + 1.5;
 
     doc.setFont("Impact", "normal");
     doc.setFontSize(fontSize);
@@ -282,7 +282,7 @@ export async function generarPaginaPDFFilada(
     for (const texto of textos) {
       if (!texto) continue;
       doc.text(texto, x + m.textX, textY);
-      textY += fontSize * ptToMm + lineSpacing;
+      textY += lineH;
     }
   }
 }
