@@ -43,7 +43,7 @@ const LLAVEROS: Medidas = (() => {
   const textW = 26.5;
   const textH = 20;
   const textX = 30;
-  const textY = 9;
+  const textY = 10;
   const holeDiam = 3;
   const holeX = cardW - 5;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
