@@ -1,33 +1,100 @@
-import Link from "next/link";
+"use client";
 
-export default function Home() {
+import { useState, FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+export default function LoginPage() {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Contraseña incorrecta");
+        return;
+      }
+
+      const data = await res.json();
+      const destino = data.tipo === "admin" ? "/admin" : "/scanner";
+      router.push(destino);
+      router.refresh();
+    } catch {
+      setError("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-6">
-      <div className="max-w-md w-full space-y-8 text-center">
-        <div className="space-y-2">
+    <main className="flex-1 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">
             Gestión Barraca
           </h1>
-          <p className="text-muted-foreground">
-            Control de crédito para socios de la comparsa
+          <p className="text-muted-foreground text-sm">
+            Introduce la contraseña para acceder
           </p>
         </div>
 
-        <div className="space-y-4 pt-4">
-          <Link
-            href="/scanner"
-            className="block w-full py-4 px-6 bg-primary text-primary-foreground rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity"
-          >
-            Escanear Pulsera
-          </Link>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
+              placeholder="Contraseña"
+              className="w-full px-4 py-3 pr-12 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          </div>
 
-          <Link
-            href="/admin"
-            className="block w-full py-4 px-6 border border-border rounded-xl text-lg font-semibold hover:bg-muted transition-colors"
+          {error && (
+            <p className="text-destructive text-sm text-center">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !password}
+            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            Administración
-          </Link>
-        </div>
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
       </div>
     </main>
   );

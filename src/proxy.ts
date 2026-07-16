@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 
 const PUBLIC_PATHS = [
-  "/admin/login",
   "/api/auth",
   "/api/scanner-auth",
   "/api/heartbeat",
@@ -30,9 +29,7 @@ export default async function proxy(request: NextRequest) {
 
   if (!isAuthenticated) {
     if (pathname.startsWith("/admin")) {
-      const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL("/", request.url));
     }
 
     if (pathname.startsWith("/api")) {

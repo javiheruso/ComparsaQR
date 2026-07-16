@@ -23,13 +23,13 @@ export async function POST(request: Request) {
       return apiError("Contraseña requerida", 400);
     }
 
-    const success = await login(password, shouldUseSecureCookie(request));
+    const tipo = await login(password, shouldUseSecureCookie(request));
 
-    if (!success) {
+    if (!tipo) {
       return apiError("Contraseña incorrecta", 401);
     }
 
-    return apiSuccess({ success: true });
+    return apiSuccess({ success: true, tipo });
   } catch {
     return apiError("Error interno", 500);
   }

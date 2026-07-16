@@ -43,7 +43,7 @@ export default function QrMasivoPage() {
   useEffect(() => {
     fetch("/api/socios?limit=500&estado=activa")
       .then((r) => {
-        if (r.status === 401) { window.location.href = "/admin/login"; return; }
+        if (r.status === 401) { window.location.href = "/"; return; }
         return r.json();
       })
       .then((data) => { if (data) setSocios(data.socios ?? []); })

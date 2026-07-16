@@ -60,8 +60,8 @@ function ScannerResultContent() {
   }, []);
 
   const puedeRecargar = permiso === null || permiso === "admin" || permiso === "caja";
-  const puedeCobrar = permiso === null || permiso === "admin" || permiso === "barra";
-  const puedeVerProductos = permiso === null || permiso === "admin" || permiso === "barra";
+  const puedeCobrar = permiso === null || permiso === "admin" || permiso === "barra" || permiso === "caja";
+  const puedeVerProductos = permiso === null || permiso === "admin" || permiso === "barra" || permiso === "caja";
 
   useEffect(() => {
     if (!token) return;

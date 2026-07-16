@@ -46,7 +46,7 @@ export default function SociosPage() {
       params.set("page", String(pagina));
       params.set("limit", String(PAGE_SIZE));
       const res = await fetch(`/api/socios?${params}`);
-      if (res.status === 401) { window.location.href = "/admin/login"; return; }
+      if (res.status === 401) { window.location.href = "/"; return; }
       if (!res.ok) throw new Error("Error al cargar");
       const data = await res.json();
       setSocios(data.socios ?? []);
@@ -85,7 +85,7 @@ export default function SociosPage() {
     setRecalcResultado(null);
     try {
       const res = await fetch("/api/socios/recalcular-edades", { method: "POST" });
-      if (res.status === 401) { window.location.href = "/admin/login"; return; }
+      if (res.status === 401) { window.location.href = "/"; return; }
       const data = await res.json();
       setRecalcResultado(`${data.total} socio(s) reclasificado(s)`);
       fetchSocios(page);
@@ -113,7 +113,7 @@ export default function SociosPage() {
           params.set("page", String(pagina));
           params.set("limit", String(PAGE_EXPORT));
           const res = await fetch(`/api/socios?${params}`);
-          if (res.status === 401) { setExportando(false); window.location.href = "/admin/login"; return; }
+          if (res.status === 401) { setExportando(false); window.location.href = "/"; return; }
           const json = await res.json();
           const items = json.socios ?? [];
           data.push(...items);

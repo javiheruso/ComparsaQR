@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
   title: "Gestión Comparsa - Barraca",
@@ -21,11 +22,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className="h-full antialiased"
-    >
-      <body className="min-h-dvh flex flex-col">{children}</body>
+    <html lang="es" className="h-full antialiased">
+      <body className="min-h-dvh flex flex-col">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

@@ -25,7 +25,7 @@ export default function TransaccionesPage() {
   useEffect(() => {
     fetch("/api/transacciones")
       .then(async (r) => {
-        if (r.status === 401) { window.location.href = "/admin/login"; return; }
+        if (r.status === 401) { window.location.href = "/"; return; }
         if (!r.ok) throw new Error("Error al cargar transacciones");
         return r.json();
       })

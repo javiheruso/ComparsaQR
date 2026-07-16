@@ -52,7 +52,7 @@ export default function ImportarSociosPage() {
         body: JSON.stringify(rows),
       });
 
-      if (res.status === 401) { window.location.href = "/admin/login"; return; }
+      if (res.status === 401) { window.location.href = "/"; return; }
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Error en importación");
@@ -74,7 +74,7 @@ export default function ImportarSociosPage() {
     setSyncResultado(null);
     try {
       const res = await fetch("/api/sync-from-gestion", { method: "POST" });
-      if (res.status === 401) { window.location.href = "/admin/login"; return; }
+      if (res.status === 401) { window.location.href = "/"; return; }
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Error en sincronización");

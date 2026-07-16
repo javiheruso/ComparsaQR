@@ -53,11 +53,11 @@ export default function SocioDetailPage() {
     const id = params.id;
     Promise.all([
       fetch(`/api/socios/${id}`).then((r) => {
-        if (r.status === 401) { window.location.href = "/admin/login"; return; }
+        if (r.status === 401) { window.location.href = "/"; return; }
         return r.json();
       }),
       fetch(`/api/socios/${id}/transacciones`).then((r) => {
-        if (r.status === 401) { window.location.href = "/admin/login"; return; }
+        if (r.status === 401) { window.location.href = "/"; return; }
         return r.json();
       }),
     ]).then(([socioData, transData]) => {
@@ -74,7 +74,7 @@ export default function SocioDetailPage() {
     const res = await fetch(`/api/socios/${params.id}/toggle-pulsera`, {
       method: "PATCH",
     });
-    if (res.status === 401) { window.location.href = "/admin/login"; return; }
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       const updated = await res.json();
       setSocio(updated);
@@ -93,13 +93,13 @@ export default function SocioDetailPage() {
       body: JSON.stringify({ cantidad }),
     });
 
-    if (res.status === 401) { window.location.href = "/admin/login"; return; }
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       const updated = await res.json();
       setSocio(updated);
       setMontoCarga("");
       const transRes = await fetch(`/api/socios/${params.id}/transacciones`);
-      if (transRes.status === 401) { window.location.href = "/admin/login"; return; }
+      if (transRes.status === 401) { window.location.href = "/"; return; }
       setTransacciones(await transRes.json());
     } else {
       const data = await res.json();
@@ -113,7 +113,7 @@ export default function SocioDetailPage() {
     const res = await fetch(`/api/socios/${params.id}/regenerar-qr`, {
       method: "PATCH",
     });
-    if (res.status === 401) { window.location.href = "/admin/login"; return; }
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       const updated = await res.json();
       setSocio(updated);
@@ -135,7 +135,7 @@ export default function SocioDetailPage() {
         fechaNacimiento: editFechaNac ? new Date(editFechaNac).toISOString() : null,
       }),
     });
-    if (res.status === 401) { window.location.href = "/admin/login"; return; }
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       const updated = await res.json();
       setSocio(updated);
@@ -151,7 +151,7 @@ export default function SocioDetailPage() {
     const res = await fetch(`/api/socios/${params.id}`, {
       method: "DELETE",
     });
-    if (res.status === 401) { window.location.href = "/admin/login"; return; }
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       router.push("/admin/socios");
     }

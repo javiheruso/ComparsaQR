@@ -57,6 +57,10 @@ export async function login(password: string, secureCookie?: boolean): Promise<s
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
     session.isLoggedIn = true;
+    session.scannerVerified = false;
+    session.puntoVentaId = undefined;
+    session.puntoNombre = undefined;
+    session.puntoPermiso = undefined;
     await session.save();
     return "admin";
   }
@@ -68,7 +72,11 @@ export async function login(password: string, secureCookie?: boolean): Promise<s
   if (scannerPassword && await verifyPassword(password, scannerPassword)) {
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
+    session.isLoggedIn = false;
     session.scannerVerified = true;
+    session.puntoVentaId = undefined;
+    session.puntoNombre = undefined;
+    session.puntoPermiso = undefined;
     await session.save();
     return "scanner";
   }
@@ -82,6 +90,7 @@ async function loginPuntoVenta(password: string, secureCookie?: boolean): Promis
     if (await verifyPassword(password, punto.password)) {
       const cookieStore = await cookies();
       const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
+      session.isLoggedIn = false;
       session.scannerVerified = true;
       session.puntoVentaId = punto.id;
       session.puntoNombre = punto.nombre;
