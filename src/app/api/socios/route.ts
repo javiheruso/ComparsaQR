@@ -1,37 +1,26 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
-import { z } from "zod";
-
-const createSocioSchema = z.object({
-  nombre: z.string().min(1).max(100),
-  credito: z.number().min(0).default(0),
-});
+import { createSocioSchema } from "@/lib/schemas";
+import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 async function generarNumeroSocio(): Promise<string> {
-  const lastSocio = await db.socio.findFirst({
-    orderBy: { id: "desc" },
-    select: { numeroSocio: true },
-  });
-
-  let nextNum = 1;
-  if (lastSocio) {
-    const match = lastSocio.numeroSocio.match(/s-(\d+)/i);
-    if (match) nextNum = parseInt(match[1]) + 1;
-  }
-
-  return `s-${String(nextNum).padStart(3, "0")}`;
+  const [result] = await db.$queryRawUnsafe<{ nextval: number }[]>(
+    `SELECT nextval('"Socio_numero_sequence"') AS nextval`
+  );
+  return `s-${String(result.nextval).padStart(3, "0")}`;
 }
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   const { searchParams } = request.nextUrl;
   const search = searchParams.get("search") || "";
   const estado = searchParams.get("estado") || "";
+  const tipo = searchParams.get("tipo") || "";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
   const skip = (page - 1) * limit;
@@ -41,11 +30,14 @@ export async function GET(request: NextRequest) {
       ? {
           OR: [
             { nombre: { contains: search, mode: "insensitive" as const } },
+            { apellido1: { contains: search, mode: "insensitive" as const } },
+            { apellido2: { contains: search, mode: "insensitive" as const } },
             { numeroSocio: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),
-    ...(estado ? { estadoPulsera: estado } : {}),
+    ...(estado ? { estadoPulsera: estado as any } : {}),
+    ...(tipo ? { tipoVinculacion: tipo as any } : {}),
   };
 
   const [socios, total] = await Promise.all([
@@ -53,18 +45,18 @@ export async function GET(request: NextRequest) {
       where,
       skip,
       take: limit,
-      orderBy: { id: "asc" },
+      orderBy: { numeroSocio: "asc" },
     }),
     db.socio.count({ where }),
   ]);
 
-  return Response.json({ socios, total, page, totalPages: Math.ceil(total / limit) });
+  return apiSuccess({ socios, total, page, totalPages: Math.ceil(total / limit) });
 }
 
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
   try {
@@ -76,15 +68,17 @@ export async function POST(request: Request) {
       data: {
         numeroSocio,
         nombre: data.nombre,
+        apellido1: data.apellido1 ?? null,
+        apellido2: data.apellido2 ?? null,
+        dni: data.dni || null,
+        tipoVinculacion: data.tipoVinculacion as any ?? "socio",
+        fechaNacimiento: data.fechaNacimiento ? new Date(data.fechaNacimiento) : null,
         credito: data.credito,
       },
     });
 
-    return Response.json(socio, { status: 201 });
+    return apiSuccess(socio, 201);
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return Response.json({ error: "Datos inválidos", details: err.issues }, { status: 400 });
-    }
-    return Response.json({ error: "Error al crear socio" }, { status: 500 });
+    return handleApiError(err, "Error al crear socio");
   }
 }

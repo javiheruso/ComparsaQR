@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getOperador, getPuntoPermiso, getPuntoVentaId } from "@/lib/auth";
+import { creditoSchema } from "@/lib/schemas";
+import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 export async function POST(
   request: Request,
@@ -7,34 +9,54 @@ export async function POST(
 ) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("No autorizado", 401);
   }
 
-  const { id } = await params;
-  const { cantidad, descripcion } = await request.json();
-
-  const [socio] = await Promise.all([
-    db.socio.findUnique({ where: { id: parseInt(id) } }),
-  ]);
-
-  if (!socio) {
-    return Response.json({ error: "Socio no encontrado" }, { status: 404 });
+  const permiso = await getPuntoPermiso();
+  if (permiso && permiso !== "admin" && permiso !== "caja") {
+    return apiError("Este punto no tiene permiso para recargar", 403);
   }
 
-  const [updated] = await Promise.all([
-    db.socio.update({
-      where: { id: parseInt(id) },
-      data: { credito: { increment: cantidad } },
-    }),
-    db.transaccion.create({
-      data: {
-        socioId: parseInt(id),
-        tipo: "carga",
-        cantidad,
-        descripcion: descripcion ?? null,
-      },
-    }),
-  ]);
+  try {
+    const { id } = await params;
+    const socioIdNum = parseInt(id);
+    if (Number.isNaN(socioIdNum)) {
+      return apiError("ID de socio no válido", 400);
+    }
 
-  return Response.json(updated);
+    const body = await request.json();
+    const { cantidad, descripcion } = creditoSchema.parse(body);
+
+    const socio = await db.socio.findUnique({ where: { id: socioIdNum } });
+
+    if (!socio) {
+      return apiError("Socio no encontrado", 404);
+    }
+
+    if (socio.estadoPulsera !== "activa") {
+      return apiError("No se puede recargar a un socio inactivo", 403);
+    }
+
+    const updated = await db.$transaction(async (tx) => {
+      const s = await tx.socio.update({
+        where: { id: socioIdNum },
+        data: { credito: { increment: cantidad } },
+      });
+      await tx.transaccion.create({
+        data: {
+          socioId: socioIdNum,
+          tipo: "carga",
+          cantidad,
+          descripcion: descripcion ?? null,
+          operador: await getOperador(),
+          puntoVentaId: await getPuntoVentaId(),
+        },
+      });
+      return s;
+    });
+
+    return apiSuccess(updated);
+  } catch (err) {
+    return handleApiError(err, "Error al cargar crédito");
+  }
 }

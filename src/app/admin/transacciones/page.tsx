@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatEuro } from "@/lib/utils";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Download, Search } from "lucide-react";
 
 interface Transaccion {
   id: number;
@@ -12,19 +12,50 @@ interface Transaccion {
   descripcion: string | null;
   createdAt: string;
   socio: { nombre: string; numeroSocio: string };
+  puntoVenta: { nombre: string } | null;
 }
 
 export default function TransaccionesPage() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filtroNombre, setFiltroNombre] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
 
   useEffect(() => {
     fetch("/api/transacciones")
-      .then((r) => r.json())
-      .then(setTransacciones)
-      .catch(() => setTransacciones([]))
+      .then(async (r) => {
+        if (r.status === 401) { window.location.href = "/"; return; }
+        if (!r.ok) throw new Error("Error al cargar transacciones");
+        return r.json();
+      })
+      .then((data) => { if (data) setTransacciones(data); })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const filtrarTransacciones = (t: Transaccion) => {
+    const nombreOk = !filtroNombre || t.socio.nombre.toLowerCase().includes(filtroNombre.toLowerCase());
+    const tipoOk = !filtroTipo || t.tipo === filtroTipo;
+    return nombreOk && tipoOk;
+  };
+
+  const filtradas = transacciones.filter(filtrarTransacciones);
+
+  const exportarCSV = (lista: Transaccion[]) => {
+    const cabecera = "Nº Socio,Socio,Tipo,Cantidad,Concepto,Punto,Fecha";
+    const filas = lista.map((t) =>
+      `${t.socio.numeroSocio},"${t.socio.nombre}",${t.tipo},${t.cantidad},"${t.descripcion ?? ""}","${t.puntoVenta?.nombre ?? ""}",${new Date(t.createdAt).toISOString()}`
+    );
+    const csv = [cabecera, ...filas].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "transacciones.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -32,12 +63,43 @@ export default function TransaccionesPage() {
         <ArrowUpDown className="w-6 h-6" /> Transacciones
       </h1>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={filtroNombre}
+            onChange={(e) => setFiltroNombre(e.target.value)}
+            placeholder="Buscar por socio..."
+            className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+          />
+        </div>
+        <select
+          value={filtroTipo}
+          onChange={(e) => setFiltroTipo(e.target.value)}
+          className="px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors bg-white"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="carga">Solo cargas</option>
+          <option value="consumo">Solo consumos</option>
+        </select>
+        <button
+          onClick={() => exportarCSV(filtradas)}
+          className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors whitespace-nowrap"
+        >
+          <Download className="w-4 h-4" />
+          <span className="hidden sm:inline">Exportar CSV</span>
+        </button>
+      </div>
+
       <div className="bg-white border border-border rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">Cargando...</div>
-        ) : transacciones.length === 0 ? (
+        ) : error ? (
+          <div className="p-8 text-center text-red-600">{error}</div>
+        ) : filtradas.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
-            No hay transacciones
+            {filtroNombre || filtroTipo ? "No hay transacciones que coincidan con los filtros" : "No hay transacciones"}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -47,12 +109,13 @@ export default function TransaccionesPage() {
                   <th className="text-left px-4 py-3 font-medium">Socio</th>
                   <th className="text-left px-4 py-3 font-medium">Tipo</th>
                   <th className="text-left px-4 py-3 font-medium">Concepto</th>
+                  <th className="text-left px-4 py-3 font-medium">Punto</th>
                   <th className="text-right px-4 py-3 font-medium">Cantidad</th>
                   <th className="text-right px-4 py-3 font-medium">Fecha</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {transacciones.map((t) => (
+                {filtradas.map((t) => (
                   <tr key={t.id} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
                       {t.socio.nombre}
@@ -73,6 +136,9 @@ export default function TransaccionesPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {t.descripcion ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {t.puntoVenta?.nombre ?? "-"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${

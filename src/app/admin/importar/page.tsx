@@ -1,19 +1,22 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Download } from "lucide-react";
+import { Upload, RefreshCw } from "lucide-react";
 import Papa from "papaparse";
 
-interface CsvRow {
-  nombre: string;
-  credito_inicial: string;
-}
-
-export default function ImportarPage() {
-  const [data, setData] = useState<CsvRow[]>([]);
+export default function ImportarSociosPage() {
   const [loading, setLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [resultado, setResultado] = useState<{
     creados: number;
+    actualizados: number;
+    omitidos: number;
+    errores: string[];
+  } | null>(null);
+  const [syncResultado, setSyncResultado] = useState<{
+    creados: number;
+    actualizados: number;
+    desactivados: number;
     errores: string[];
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -22,56 +25,67 @@ export default function ImportarPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    const result = Papa.parse<CsvRow>(text, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (h) => h.trim().toLowerCase(),
-    });
-
-    if (result.errors.length > 0) {
-      console.error("CSV errors:", result.errors);
-    }
-    if (result.data.length === 0) {
-      alert("El archivo debe tener una cabecera y al menos una fila");
-      return;
-    }
-
-    setData(result.data);
-  };
-
-  const importar = async () => {
     setLoading(true);
     setResultado(null);
-    let creados = 0;
-    const errores: string[] = [];
 
-    for (const row of data) {
-      try {
-        const res = await fetch("/api/socios", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nombre: row.nombre,
-            credito: row.credito_inicial
-              ? parseFloat(row.credito_inicial)
-              : 0,
-          }),
-        });
+    try {
+      const text = await file.text();
+      const result = Papa.parse<Record<string, string>>(text, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (h) => h.trim().toLowerCase(),
+      });
 
-        if (!res.ok) {
-          const err = await res.json();
-          errores.push(`${row.nombre}: ${err.error}`);
-        } else {
-          creados++;
-        }
-      } catch {
-        errores.push(`${row.nombre}: Error de conexión`);
+      const rows = result.data.map((r) => ({
+        numeroSocio: (r.numero_socio || "").trim(),
+        dni: r.dni || "",
+        nombre: (r.nombre || "").trim().toUpperCase(),
+        apellidos: (r.apellidos || "").trim().toUpperCase(),
+        tipoVinculacion: (r.tipo_vinculacion || "").trim(),
+        fechaNacimiento: r.fecha_nacimiento || null,
+        activo: (r.activo || "").trim(),
+      }));
+
+      const res = await fetch("/api/socios/importar-gestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rows),
+      });
+
+      if (res.status === 401) { window.location.href = "/"; return; }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error en importación");
       }
-    }
 
-    setResultado({ creados, errores });
-    setLoading(false);
+      const data = await res.json();
+      setResultado(data);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al importar");
+    } finally {
+      setLoading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleSync = async () => {
+    if (!confirm("¿Sincronizar con la app de gestión? Se actualizarán los datos de todos los socios.")) return;
+    setSyncLoading(true);
+    setSyncResultado(null);
+    try {
+      const res = await fetch("/api/sync-from-gestion", { method: "POST" });
+      if (res.status === 401) { window.location.href = "/"; return; }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error en sincronización");
+      }
+      const data = await res.json();
+      setSyncResultado(data);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al sincronizar");
+    } finally {
+      setSyncLoading(false);
+    }
   };
 
   return (
@@ -83,26 +97,17 @@ export default function ImportarPage() {
       <div className="bg-white border border-border rounded-xl p-6 space-y-4">
         <h2 className="font-semibold">Formato del CSV</h2>
         <p className="text-sm text-muted-foreground">
-          El archivo debe tener una cabecera con las columnas:{" "}
-          <code className="bg-muted px-1 rounded">nombre, credito_inicial</code>
+          Importa el archivo exportado de la app de gestión. Busca primero por
+          numero_socio y luego por DNI.
         </p>
         <p className="text-sm text-muted-foreground">
-          <code>credito_inicial</code> es opcional (por defecto 0). El número de socio se asigna automáticamente.
+          Columnas:{" "}
+          <code className="bg-muted px-1 rounded">numero_socio, dni, nombre, apellidos, tipo_vinculacion, fecha_nacimiento, activo</code>
         </p>
-        <button
-          onClick={() => {
-            const csv = "nombre,credito_inicial\nEjemplo Socio,10\n";
-            const blob = new Blob([csv], { type: "text/csv" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "plantilla_socios.csv";
-            a.click();
-          }}
-          className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors w-fit"
-        >
-          <Download className="w-4 h-4" /> Descargar Plantilla
-        </button>
+        <p className="text-sm text-muted-foreground">
+          El crédito se asigna según el tipo: socio 100€,
+          hijos_mayores 100€, socios_menores 50€, hijo_socio 0€.
+        </p>
       </div>
 
       <div className="bg-white border border-border rounded-xl p-6">
@@ -111,77 +116,80 @@ export default function ImportarPage() {
           type="file"
           accept=".csv"
           onChange={handleFile}
-          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:opacity-90"
+          disabled={loading}
+          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:opacity-90 disabled:opacity-50"
         />
       </div>
 
-      {data.length > 0 && (
-        <div className="bg-white border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold">
-            Vista Previa ({data.length} socios)
-          </h2>
-          <div className="max-h-48 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left px-3 py-2">Nombre</th>
-                  <th className="text-right px-3 py-2">Crédito Inicial</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data.slice(0, 20).map((row, i) => (
-                  <tr key={i}>
-                    <td className="px-3 py-2">{row.nombre}</td>
-                    <td className="px-3 py-2 text-right">
-                      {row.credito_inicial || "0"}€
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {loading && (
+        <div className="text-center text-muted-foreground">Importando...</div>
+      )}
 
-          {!resultado ? (
-            <button
-              onClick={importar}
-              disabled={loading}
-              className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
-            >
-              {loading
-                ? "Importando..."
-                : `Importar ${data.length} Socios`}
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-green-600 font-medium">
-                ✓ {resultado.creados} socios creados
-              </p>
-              {resultado.errores.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-700 font-medium text-sm">
-                    {resultado.errores.length} errores:
-                  </p>
-                  <ul className="list-disc list-inside text-red-600 text-xs mt-1">
-                    {resultado.errores.slice(0, 5).map((e, i) => (
-                      <li key={i}>{e}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setData([]);
-                  setResultado(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
-                className="w-full py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
-              >
-                Importar Otro Archivo
-              </button>
+      {resultado && (
+        <div className="bg-white border border-border rounded-xl p-6 space-y-3">
+          <p className="text-green-600 font-medium">
+            ✓ {resultado.creados} creados, {resultado.actualizados} actualizados
+          </p>
+          {resultado.omitidos > 0 && (
+            <p className="text-muted-foreground text-sm">{resultado.omitidos} omitidos (sin nombre)</p>
+          )}
+          {resultado.errores.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-700 font-medium text-sm">{resultado.errores.length} errores:</p>
+              <ul className="list-disc list-inside text-red-600 text-xs mt-1">
+                {resultado.errores.map((e, i) => (
+                  <li key={i}>{e}</li>
+                ))}
+              </ul>
             </div>
           )}
+          <button
+            onClick={() => { setResultado(null); if (fileRef.current) fileRef.current.value = ""; }}
+            className="w-full py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
+          >
+            Importar otro archivo
+          </button>
         </div>
       )}
+
+      <div className="bg-white border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold flex items-center gap-2">
+          <RefreshCw className="w-5 h-5" /> Sincronización directa
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Conecta directamente con la base de datos de la app de gestión para
+          importar todos los socios. Los nuevos se crean, los existentes se
+          actualizan, y los que ya no están en gestión se desactivan (sin
+          crédito pendiente).
+        </p>
+        <button
+          onClick={handleSync}
+          disabled={syncLoading}
+          className="flex items-center gap-2 w-full justify-center py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          <RefreshCw className={`w-5 h-5 ${syncLoading ? "animate-spin" : ""}`} />
+          {syncLoading ? "Sincronizando..." : "Sincronizar con gestión"}
+        </button>
+
+        {syncResultado && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+            <p className="text-green-700 font-medium">✓ Sincronización completada</p>
+            <p className="text-sm text-green-600">
+              {syncResultado.creados} creados, {syncResultado.actualizados} actualizados, {syncResultado.desactivados} desactivados
+            </p>
+            {syncResultado.errores.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+                <p className="text-red-700 font-medium text-sm">{syncResultado.errores.length} errores:</p>
+                <ul className="list-disc list-inside text-red-600 text-xs mt-1">
+                  {syncResultado.errores.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

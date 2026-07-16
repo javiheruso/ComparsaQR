@@ -23,6 +23,7 @@ export default function ProductosPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/productos");
+      if (res.status === 401) { window.location.href = "/"; return; }
       setProductos(await res.json());
     } catch {
       setProductos([]);
@@ -32,10 +33,7 @@ export default function ProductosPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchProductos();
-    }, 0);
-    return () => clearTimeout(timer);
+    fetchProductos();
   }, [fetchProductos]);
 
   const resetForm = () => {
@@ -70,6 +68,7 @@ export default function ProductosPage() {
           body: JSON.stringify(body),
         });
 
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       resetForm();
       fetchProductos();
@@ -79,6 +78,7 @@ export default function ProductosPage() {
   const deleteProducto = async (id: number) => {
     if (!confirm("¿Eliminar este producto?")) return;
     const res = await fetch(`/api/productos/${id}`, { method: "DELETE" });
+    if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) fetchProductos();
   };
 

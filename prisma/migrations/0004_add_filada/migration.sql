@@ -1,0 +1,1 @@
+ALTER TABLE "Socio" ADD COLUMN "filada" TEXT;

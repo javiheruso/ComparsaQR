@@ -7,16 +7,61 @@ datasource db {
   provider = "postgresql"
 }
 
+enum TipoVinculacion {
+  socio
+  hijos_mayores
+  socios_menores
+  hijo_socio
+}
+
+enum EstadoPulsera {
+  activa
+  inactiva
+  perdida
+}
+
+enum TipoTransaccion {
+  carga
+  consumo
+}
+
+enum PermisoPunto {
+  barra
+  caja
+}
+
+model PuntoVenta {
+  id        Int          @id @default(autoincrement())
+  nombre    String       @unique
+  password  String
+  permiso   PermisoPunto
+  activo    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  transacciones Transaccion[]
+}
+
 model Socio {
-  id             Int           @id @default(autoincrement())
-  numeroSocio    String        @unique
-  nombre         String
-  credito        Float         @default(0)
-  estadoPulsera  String        @default("activa")
-  qrToken        String        @unique @default(uuid())
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  transacciones  Transaccion[]
+  id               Int              @id @default(autoincrement())
+  numeroSocio      String           @unique
+  dni              String?          @unique
+  nombre           String
+  apellido1        String?
+  apellido2        String?
+  tipoVinculacion  TipoVinculacion  @default(socio)
+  fechaNacimiento  DateTime?
+  credito          Float            @default(0)
+  estadoPulsera    EstadoPulsera    @default(activa)
+  qrToken          String           @unique @default(uuid())
+  filada           String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  transacciones    Transaccion[]
+
+  @@index([nombre])
+  @@index([apellido1])
+  @@index([apellido2])
+  @@index([numeroSocio])
 }
 
 model Producto {
@@ -28,12 +73,36 @@ model Producto {
   updatedAt DateTime @updatedAt
 }
 
+model Heartbeat {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  timestamp DateTime @default(now())
+}
+
+model RateLimit {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  count     Int      @default(1)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}
+
+model GuestSession {
+  id           Int       @id @default(autoincrement())
+  balance      Float     @default(100)
+  lastChargeAt DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
 model Transaccion {
-  id          Int      @id @default(autoincrement())
-  socioId     Int
-  socio       Socio    @relation(fields: [socioId], references: [id])
-  tipo        String
-  cantidad    Float
-  descripcion String?
-  createdAt   DateTime @default(now())
+  id           Int              @id @default(autoincrement())
+  socioId      Int
+  socio        Socio            @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  tipo         TipoTransaccion
+  cantidad     Float
+  descripcion  String?
+  operador     String?
+  puntoVentaId Int?
+  puntoVenta   PuntoVenta?      @relation(fields: [puntoVentaId], references: [id])
+  createdAt    DateTime         @default(now())
 }

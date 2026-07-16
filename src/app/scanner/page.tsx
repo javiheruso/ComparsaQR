@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter, useSearchParams } from "next/navigation";
 import { extractQrToken } from "@/lib/qr";
+import { ScannerAccessGate } from "./ScannerAccessGate";
 
 interface CameraDevice {
   id: string;
@@ -39,6 +40,8 @@ function ScannerContent() {
   const [activeCameraId, setActiveCameraId] = useState("");
   const [loadingCameras, setLoadingCameras] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isRunningRef = useRef(false);
+  const hasReadQrRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -50,13 +53,37 @@ function ScannerContent() {
     }
   }, [router, searchParams]);
 
+  const safeStopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+
+    if (!scanner) {
+      isRunningRef.current = false;
+      return;
+    }
+
+    try {
+      if (isRunningRef.current) {
+        await scanner.stop();
+      }
+    } catch (err) {
+      console.warn("El escáner ya estaba detenido o no llegó a iniciarse:", err);
+    }
+
+    try {
+      scanner.clear();
+    } catch (err) {
+      console.warn("No se pudo limpiar el escáner:", err);
+    }
+
+    scannerRef.current = null;
+    isRunningRef.current = false;
+  }, []);
+
   useEffect(() => {
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-      }
+      safeStopScanner();
     };
-  }, []);
+  }, [safeStopScanner]);
 
   const loadCameras = async () => {
     setError(null);
@@ -79,8 +106,11 @@ function ScannerContent() {
       const cameraId = getPreferredCamera(nextCameras);
       setSelectedCameraId(cameraId);
       return nextCameras;
-    } catch {
-      setError("No se pudo listar las cámaras. Revisa los permisos del navegador.");
+    } catch (err) {
+      const msg = err instanceof DOMException && err.name === "NotAllowedError"
+        ? "Permiso de cámara denegado. Actívalo en la configuración del navegador."
+        : "No se pudo listar las cámaras. Revisa los permisos del navegador.";
+      setError(msg);
       return [];
     } finally {
       setLoadingCameras(false);
@@ -90,9 +120,11 @@ function ScannerContent() {
   const startScanner = async (cameraIdOverride?: string) => {
     setError(null);
     setScanning(true);
+    hasReadQrRef.current = false;
 
     try {
       await waitForScannerElement();
+      await safeStopScanner();
 
       const availableCameras = cameras.length > 0 ? cameras : await loadCameras();
       const cameraId = cameraIdOverride || selectedCameraId || getPreferredCamera(availableCameras);
@@ -113,16 +145,17 @@ function ScannerContent() {
         cameraId,
         {
           fps: 15,
-          aspectRatio: 1.777778,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const size = Math.floor(
-              Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.82, 340)
+              Math.min(viewfinderWidth * 0.96, viewfinderHeight * 0.96)
             );
-            const safeSize = Math.max(size, 180);
+            const safeSize = Math.max(size, 260);
             return { width: safeSize, height: safeSize };
           },
         },
-        (decodedText) => {
+        async (decodedText) => {
+          if (hasReadQrRef.current) return;
+
           const token = extractQrToken(decodedText);
 
           if (!token) {
@@ -130,14 +163,19 @@ function ScannerContent() {
             return;
           }
 
-          scanner.stop().catch(() => {});
+          hasReadQrRef.current = true;
+          await safeStopScanner();
           setScanning(false);
           setActiveCameraId("");
           router.push(`/scanner/result?token=${encodeURIComponent(token)}`);
         },
         () => {}
       );
-    } catch {
+
+      isRunningRef.current = true;
+    } catch (err) {
+      console.error("No se pudo iniciar el escáner:", err);
+      await safeStopScanner();
       setError("No se pudo acceder a la cámara. Prueba otra cámara o revisa los permisos.");
       setScanning(false);
       setActiveCameraId("");
@@ -145,10 +183,7 @@ function ScannerContent() {
   };
 
   const stopScanner = async () => {
-    if (scannerRef.current) {
-      await scannerRef.current.stop().catch(() => {});
-      scannerRef.current = null;
-    }
+    await safeStopScanner();
     setScanning(false);
     setActiveCameraId("");
   };
@@ -172,11 +207,6 @@ function ScannerContent() {
     );
     const nextCamera = availableCameras[(currentIndex + 1) % availableCameras.length];
 
-    if (scannerRef.current) {
-      await scannerRef.current.stop().catch(() => {});
-      scannerRef.current = null;
-    }
-
     await startScanner(nextCamera.id);
   };
 
@@ -194,7 +224,7 @@ function ScannerContent() {
         <h1 className="text-lg font-semibold">Escanear Pulsera</h1>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-3 py-5 sm:p-6">
         {!scanning ? (
           <div className="w-full max-w-sm text-center space-y-5">
             <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
@@ -239,8 +269,11 @@ function ScannerContent() {
             )}
           </div>
         ) : (
-          <div className="w-full max-w-sm space-y-4">
-            <div id="scanner-element" className="w-full aspect-square rounded-xl overflow-hidden bg-black" />
+          <div className="w-full max-w-2xl space-y-4">
+            <div
+              id="scanner-element"
+              className="w-full min-h-[430px] h-[62dvh] max-h-[680px] rounded-xl overflow-hidden bg-black [&_video]:!h-full [&_video]:!w-full [&_video]:!object-cover"
+            />
             <p className="text-xs text-muted-foreground text-center">
               Si no lee la pulsera, prueba otra cámara y acerca o aleja despacio hasta que enfoque.
             </p>
@@ -276,7 +309,9 @@ export default function ScannerPage() {
         </main>
       }
     >
-      <ScannerContent />
+      <ScannerAccessGate>
+        <ScannerContent />
+      </ScannerAccessGate>
     </Suspense>
   );
 }
