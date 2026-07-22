@@ -13,6 +13,19 @@ interface SocioData {
   numeroSocio: string;
   credito: number;
   estadoPulsera: string;
+  fechaNacimiento: string | null;
+}
+
+function esMenorEdad(fechaNacimiento: string | null): boolean {
+  if (!fechaNacimiento) return false;
+  const hoy = new Date();
+  const nacimiento = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
+  }
+  return edad < 18;
 }
 
 interface Producto {
@@ -283,7 +296,14 @@ function ScannerResultContent() {
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate">{socio.nombre}</h1>
+            <h1 className="text-lg font-bold truncate flex items-center gap-2">
+              {socio.nombre}
+              {esMenorEdad(socio.fechaNacimiento) && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300 shrink-0">
+                  MENOR
+                </span>
+              )}
+            </h1>
             <p className="text-sm text-muted-foreground">#{socio.numeroSocio}</p>
           </div>
           <div className="text-right flex-shrink-0">

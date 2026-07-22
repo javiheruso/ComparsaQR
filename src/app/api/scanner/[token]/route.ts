@@ -30,6 +30,7 @@ export async function GET(
       numeroSocio: true,
       credito: true,
       estadoPulsera: true,
+      fechaNacimiento: true,
     },
   });
 
