@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Download } from "lucide-react";
+import { Upload, Download, ChevronDown, ChevronUp } from "lucide-react";
 import Papa from "papaparse";
 
 interface CsvRow {
@@ -9,13 +9,23 @@ interface CsvRow {
   credito_inicial: string;
 }
 
+interface DetalleImport {
+  nombre: string;
+  accion: "creado" | "actualizado";
+}
+
+interface ResultadoImport {
+  creados: number;
+  actualizados: number;
+  errores: { nombre: string; error: string }[];
+  detalles: DetalleImport[];
+}
+
 export default function ImportarPage() {
   const [data, setData] = useState<CsvRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<{
-    creados: number;
-    errores: string[];
-  } | null>(null);
+  const [resultado, setResultado] = useState<ResultadoImport | null>(null);
+  const [verDetalle, setVerDetalle] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,35 +53,51 @@ export default function ImportarPage() {
   const importar = async () => {
     setLoading(true);
     setResultado(null);
-    let creados = 0;
-    const errores: string[] = [];
+    setVerDetalle(false);
 
-    for (const row of data) {
-      try {
-        const res = await fetch("/api/socios", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nombre: row.nombre,
-            credito: row.credito_inicial
-              ? parseFloat(row.credito_inicial)
-              : 0,
-          }),
+    const socios = data.map((row) => ({
+      nombre: row.nombre.trim(),
+      ...(row.credito_inicial
+        ? { credito: parseFloat(row.credito_inicial) }
+        : {}),
+    }));
+
+    try {
+      const res = await fetch("/api/socios/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ socios }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setResultado({
+          creados: 0,
+          actualizados: 0,
+          errores: [{ nombre: "Batch", error: err.error || "Error en la importación" }],
+          detalles: [],
         });
-
-        if (!res.ok) {
-          const err = await res.json();
-          errores.push(`${row.nombre}: ${err.error}`);
-        } else {
-          creados++;
-        }
-      } catch {
-        errores.push(`${row.nombre}: Error de conexión`);
+      } else {
+        const result: ResultadoImport = await res.json();
+        setResultado(result);
       }
+    } catch {
+      setResultado({
+        creados: 0,
+        actualizados: 0,
+        errores: [{ nombre: "Batch", error: "Error de conexión" }],
+        detalles: [],
+      });
     }
 
-    setResultado({ creados, errores });
     setLoading(false);
+  };
+
+  const resetForm = () => {
+    setData([]);
+    setResultado(null);
+    setVerDetalle(false);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -87,7 +113,8 @@ export default function ImportarPage() {
           <code className="bg-muted px-1 rounded">nombre, credito_inicial</code>
         </p>
         <p className="text-sm text-muted-foreground">
-          <code>credito_inicial</code> es opcional (por defecto 0). El número de socio se asigna automáticamente.
+          <code>credito_inicial</code> es opcional (por defecto 0).
+          Si el nombre ya existe, el socio se marca como actualizado y no se modifica su crédito.
         </p>
         <button
           onClick={() => {
@@ -152,28 +179,83 @@ export default function ImportarPage() {
                 : `Importar ${data.length} Socios`}
             </button>
           ) : (
-            <div className="space-y-2">
-              <p className="text-green-600 font-medium">
-                ✓ {resultado.creados} socios creados
-              </p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3">
+                {resultado.creados > 0 && (
+                  <p className="text-green-600 font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    {resultado.creados} socio{resultado.creados !== 1 ? "s" : ""} nuevo{resultado.creados !== 1 ? "s" : ""} creado{resultado.creados !== 1 ? "s" : ""}
+                  </p>
+                )}
+                {resultado.actualizados > 0 && (
+                  <p className="text-blue-600 font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    {resultado.actualizados} socio{resultado.actualizados !== 1 ? "s" : ""} actualizado{resultado.actualizados !== 1 ? "s" : ""} (ya existían)
+                  </p>
+                )}
+                {resultado.errores.length > 0 && (
+                  <p className="text-red-600 font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    {resultado.errores.length} error{resultado.errores.length !== 1 ? "es" : ""}
+                  </p>
+                )}
+              </div>
+
+              {resultado.detalles.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setVerDetalle(!verDetalle)}
+                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {verDetalle ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {verDetalle ? "Ocultar" : "Ver"} detalle
+                  </button>
+                  {verDetalle && (
+                    <div className="max-h-48 overflow-y-auto mt-2 border border-border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/50">
+                            <th className="text-left px-3 py-2">Nombre</th>
+                            <th className="text-left px-3 py-2">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {resultado.detalles.map((d, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2">{d.nombre}</td>
+                              <td className="px-3 py-2">
+                                {d.accion === "creado" ? (
+                                  <span className="text-green-600 font-medium">Creado</span>
+                                ) : (
+                                  <span className="text-blue-600 font-medium">Actualizado</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {resultado.errores.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-700 font-medium text-sm">
-                    {resultado.errores.length} errores:
+                  <p className="text-red-700 font-medium text-sm mb-1">
+                    {resultado.errores.length} error{resultado.errores.length !== 1 ? "es" : ""}:
                   </p>
-                  <ul className="list-disc list-inside text-red-600 text-xs mt-1">
-                    {resultado.errores.slice(0, 5).map((e, i) => (
-                      <li key={i}>{e}</li>
+                  <ul className="list-disc list-inside text-red-600 text-xs">
+                    {resultado.errores.slice(0, 10).map((e, i) => (
+                      <li key={i}>
+                        {e.nombre}: {e.error}
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
+
               <button
-                onClick={() => {
-                  setData([]);
-                  setResultado(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
+                onClick={resetForm}
                 className="w-full py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted"
               >
                 Importar Otro Archivo
