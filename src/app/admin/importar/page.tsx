@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, Download } from "lucide-react";
 import Papa from "papaparse";
 
 interface CsvRow {
@@ -25,7 +25,6 @@ export default function ImportarPage() {
   const [data, setData] = useState<CsvRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImport | null>(null);
-  const [verDetalle, setVerDetalle] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +52,6 @@ export default function ImportarPage() {
   const importar = async () => {
     setLoading(true);
     setResultado(null);
-    setVerDetalle(false);
 
     const socios = data.map((row) => ({
       nombre: row.nombre.trim(),
@@ -96,7 +94,6 @@ export default function ImportarPage() {
   const resetForm = () => {
     setData([]);
     setResultado(null);
-    setVerDetalle(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -202,40 +199,29 @@ export default function ImportarPage() {
               </div>
 
               {resultado.detalles.length > 0 && (
-                <div>
-                  <button
-                    onClick={() => setVerDetalle(!verDetalle)}
-                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {verDetalle ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    {verDetalle ? "Ocultar" : "Ver"} detalle
-                  </button>
-                  {verDetalle && (
-                    <div className="max-h-48 overflow-y-auto mt-2 border border-border rounded-lg">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/50">
-                            <th className="text-left px-3 py-2">Nombre</th>
-                            <th className="text-left px-3 py-2">Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {resultado.detalles.map((d, i) => (
-                            <tr key={i}>
-                              <td className="px-3 py-2">{d.nombre}</td>
-                              <td className="px-3 py-2">
-                                {d.accion === "creado" ? (
-                                  <span className="text-green-600 font-medium">Creado</span>
-                                ) : (
-                                  <span className="text-blue-600 font-medium">Actualizado</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                <div className="max-h-48 overflow-y-auto border border-border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left px-3 py-2">Nombre</th>
+                        <th className="text-left px-3 py-2">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {resultado.detalles.map((d, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2">{d.nombre}</td>
+                          <td className="px-3 py-2">
+                            {d.accion === "creado" ? (
+                              <span className="text-green-600 font-medium">Creado</span>
+                            ) : (
+                              <span className="text-blue-600 font-medium">Actualizado</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
