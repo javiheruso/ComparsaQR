@@ -60,15 +60,40 @@ export default function NuevoSocioPage() {
           <p className="text-xs text-muted-foreground break-all">{qrUrl}</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => {
-                const canvas = document.querySelector("canvas");
-                if (canvas) {
-                  const url = canvas.toDataURL("image/png");
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `qr-${nuevoSocio.numeroSocio}.png`;
-                  a.click();
-                }
+              onClick={async () => {
+                const [{ default: jsPDF }, qrModule] = await Promise.all([
+                  import("jspdf"),
+                  import("qrcode"),
+                ]);
+
+                const qrUrl = `${window.location.origin}/scanner?token=${nuevoSocio.qrToken}`;
+                const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+                  width: 200,
+                  margin: 1,
+                  color: { dark: "#000000", light: "#FFFFFF" },
+                });
+
+                const doc = new jsPDF("p", "mm", "a4");
+                const pageW = 210;
+                const pageH = 297;
+                const cardW = 63.33;
+                const cardH = 69.25;
+                const x = (pageW - cardW) / 2;
+                const y = (pageH - cardH) / 2;
+                const qrSize = Math.min(cardW, cardH) - 20;
+                const qrX = x + (cardW - qrSize) / 2;
+                const qrY = y + 5;
+
+                doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+                doc.setFontSize(7);
+                doc.text(
+                  `${nuevoSocio.nombre} (#${nuevoSocio.numeroSocio})`,
+                  x + cardW / 2,
+                  y + cardH - 3,
+                  { align: "center" }
+                );
+
+                doc.save(`qr-${nuevoSocio.numeroSocio}.pdf`);
               }}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
             >
