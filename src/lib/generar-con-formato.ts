@@ -379,3 +379,55 @@ export async function generarEtiquetaPNG(
 
   return canvas.toDataURL("image/png");
 }
+
+export async function generarEtiquetaPDF(
+  formato: TipoFormato,
+  socio: Socio
+): Promise<void> {
+  const { default: jsPDF } = await import("jspdf");
+  const qrModule = await import("qrcode");
+  const doc = new jsPDF("p", "mm", "a4");
+
+  const medidas = getMedidas(formato);
+  const pageW = 210;
+  const pageH = 297;
+  const x = (pageW - medidas.cardW) / 2;
+  const y = (pageH - medidas.cardH) / 2;
+
+  await cargarFuenteImpactPDF(doc);
+
+  dibujarFondoEtiquetaPDF(doc, x, y, medidas);
+
+  const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
+  const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+    width: 250,
+    margin: 1,
+    color: { dark: "#000000", light: "#FFFFFF" },
+  });
+
+  doc.addImage(qrDataUrl, "PNG", x + medidas.qrX, y + medidas.qrY, medidas.qrSize, medidas.qrSize, undefined, "FAST");
+
+  const textos = obtenerTextos(socio);
+  const medirTexto = (texto: string, tam: number): number => {
+    doc.setFont("Impact", "normal");
+    doc.setFontSize(tam);
+    return doc.getTextWidth(texto) * 0.85;
+  };
+
+  const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
+  const ptToMm = 0.353;
+  const lineSpacing = 0.5;
+
+  doc.setFont("Impact", "normal");
+  doc.setFontSize(fontSize);
+
+  let textY = y + medidas.textY + fontSize * ptToMm;
+  for (const texto of textos) {
+    if (!texto) continue;
+    doc.text(texto, x + medidas.textX, textY);
+    textY += fontSize * ptToMm + lineSpacing;
+  }
+
+  const prefijo = formato === "llaveros" ? "llavero" : "pulsera";
+  doc.save(`${prefijo}-${socio.numeroSocio}.pdf`);
+}

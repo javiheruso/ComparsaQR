@@ -5,11 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { formatEuro } from "@/lib/utils";
 import { ArrowLeft, QrCode, RefreshCw } from "lucide-react";
-import {
-  TipoFormato,
-  generarEtiquetaPNG,
-  getNombreArchivo,
-} from "@/lib/generar-con-formato";
+import { generarEtiquetaPDF } from "@/lib/generar-con-formato";
 
 interface Socio {
   id: number;
@@ -337,25 +333,13 @@ export default function SocioDetailPage() {
           </p>
           <div className="flex gap-2">
             <button
-              onClick={async () => {
-                const url = await generarEtiquetaPNG("llaveros", socio);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = getNombreArchivo("llaveros", socio.numeroSocio);
-                a.click();
-              }}
+              onClick={() => generarEtiquetaPDF("llaveros", socio)}
               className="flex-1 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
             >
               Llavero
             </button>
             <button
-              onClick={async () => {
-                const url = await generarEtiquetaPNG("pulseras", socio);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = getNombreArchivo("pulseras", socio.numeroSocio);
-                a.click();
-              }}
+              onClick={() => generarEtiquetaPDF("pulseras", socio)}
               className="flex-1 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
             >
               Pulsera
