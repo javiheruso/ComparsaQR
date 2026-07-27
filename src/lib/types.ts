@@ -8,7 +8,7 @@ export type SocioBasic = Prisma.SocioGetPayload<{
   select: {
     id: true; numeroSocio: true; nombre: true;
     apellido1: true; apellido2: true; credito: true;
-    estadoPulsera: true; qrToken: true;
+    creditoNoRetornable: true; estadoPulsera: true; qrToken: true;
   }
 }>;
 
@@ -17,7 +17,7 @@ export type SocioDetail = Prisma.SocioGetPayload<{
     id: true; numeroSocio: true; nombre: true;
     apellido1: true; apellido2: true; dni: true;
     tipoVinculacion: true; fechaNacimiento: true;
-    credito: true; estadoPulsera: true; qrToken: true;
+    credito: true; creditoNoRetornable: true; estadoPulsera: true; qrToken: true;
   }
 }>;
 

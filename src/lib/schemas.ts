@@ -42,6 +42,15 @@ export const recargaMasivaSchema = z.object({
   tipoVinculacion: z.enum(["socio", "hijos_mayores", "socios_menores", "hijo_socio"]),
   cantidad: z.number().positive(),
   descripcion: z.string().optional(),
+  noRetornable: z.boolean().optional(),
+});
+
+export const devolucionSchema = z.object({
+  cantidad: z.number().positive(),
+});
+
+export const devolucionMasivaSchema = z.object({
+  socioIds: z.array(z.number().int().positive()).optional(),
 });
 
 export const creditoSchema = z.object({

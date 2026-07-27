@@ -97,13 +97,25 @@ export async function POST(
   }
 
   const updated = await db.$transaction(async (tx) => {
+    const current = await tx.socio.findUnique({
+      where: { id: socioId },
+      select: { creditoNoRetornable: true },
+    });
+
+    if (!current) return null;
+
+    const decrementNoRetornable = Math.min(current.creditoNoRetornable, total);
+
     const update = await tx.socio.updateMany({
       where: {
         id: socioId,
         estadoPulsera: "activa",
         credito: { gte: total },
       },
-      data: { credito: { decrement: total } },
+      data: {
+        credito: { decrement: total },
+        creditoNoRetornable: { decrement: decrementNoRetornable },
+      },
     });
 
     if (update.count !== 1) return null;

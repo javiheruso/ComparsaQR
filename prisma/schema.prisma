@@ -23,6 +23,7 @@ enum EstadoPulsera {
 enum TipoTransaccion {
   carga
   consumo
+  devolucion
 }
 
 enum PermisoPunto {
@@ -50,8 +51,9 @@ model Socio {
   apellido2        String?
   tipoVinculacion  TipoVinculacion  @default(socio)
   fechaNacimiento  DateTime?
-  credito          Float            @default(0)
-  estadoPulsera    EstadoPulsera    @default(activa)
+  credito              Float            @default(0)
+  creditoNoRetornable  Float            @default(0)
+  estadoPulsera        EstadoPulsera    @default(activa)
   qrToken          String           @unique @default(uuid())
   filada           String?
   createdAt        DateTime         @default(now())

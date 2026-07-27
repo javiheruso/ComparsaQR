@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -43,7 +44,15 @@ export default function LoginPage() {
   return (
     <main className="flex-1 flex items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-4">
+          <Image
+            src="/icon-192.png"
+            alt="Logo"
+            width={96}
+            height={96}
+            className="mx-auto"
+            priority
+          />
           <h1 className="text-4xl font-bold tracking-tight">
             Gestión Barraca
           </h1>

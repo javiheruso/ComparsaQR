@@ -16,6 +16,7 @@ export default function RecargarPage() {
   const [tipo, setTipo] = useState("socio");
   const [cantidad, setCantidad] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [noRetornable, setNoRetornable] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<{ procesados: number; cantidad: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export default function RecargarPage() {
           tipoVinculacion: tipo,
           cantidad: importe,
           descripcion: descripcion || undefined,
+          noRetornable: noRetornable || undefined,
         }),
       });
 
@@ -102,6 +104,16 @@ export default function RecargarPage() {
             className="w-full px-4 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={noRetornable}
+            onChange={(e) => setNoRetornable(e.target.checked)}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20"
+          />
+          <span>Recarga inicial <span className="text-muted-foreground">(no retornable)</span></span>
+        </label>
 
         {error && <p className="text-destructive text-sm">{error}</p>}
 

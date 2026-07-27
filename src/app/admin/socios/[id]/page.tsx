@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { formatEuro } from "@/lib/utils";
-import { ArrowLeft, QrCode, RefreshCw } from "lucide-react";
+import { ArrowLeft, QrCode, RefreshCw, Wallet } from "lucide-react";
 import { generarEtiquetaPDF } from "@/lib/generar-con-formato";
 
 interface Socio {
@@ -17,6 +17,7 @@ interface Socio {
   tipoVinculacion: string;
   fechaNacimiento: string | null;
   credito: number;
+  creditoNoRetornable: number;
   estadoPulsera: string;
   qrToken: string;
 }
@@ -153,6 +154,45 @@ export default function SocioDetailPage() {
     }
   };
 
+  const devolverCredito = async () => {
+    if (!socio) return;
+    const retornable = socio.credito - socio.creditoNoRetornable;
+    if (retornable <= 0) return;
+
+    const cantidad = prompt(
+      `Saldo retornable: ${formatEuro(retornable)}\n¿Cantidad a devolver?`,
+      String(retornable)
+    );
+    if (!cantidad) return;
+
+    const importe = parseFloat(cantidad);
+    if (isNaN(importe) || importe <= 0 || importe > retornable) {
+      setError("Cantidad no válida");
+      return;
+    }
+
+    if (!confirm(`¿Devolver ${formatEuro(importe)} a ${socio.nombre}?`)) return;
+
+    setError(null);
+    const res = await fetch(`/api/socios/${params.id}/devolver`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cantidad: importe }),
+    });
+
+    if (res.status === 401) { window.location.href = "/"; return; }
+    if (res.ok) {
+      const updated = await res.json();
+      setSocio(updated);
+      const transRes = await fetch(`/api/socios/${params.id}/transacciones`);
+      if (transRes.status === 401) { window.location.href = "/"; return; }
+      setTransacciones(await transRes.json());
+    } else {
+      const data = await res.json();
+      setError(data.error);
+    }
+  };
+
   if (loading) {
     return <div className="p-6 text-muted-foreground">Cargando...</div>;
   }
@@ -254,6 +294,10 @@ export default function SocioDetailPage() {
 
         <div className="mt-6 flex items-center gap-4">
           <span className="text-3xl font-bold">{formatEuro(socio.credito)}</span>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p>No retornable: {formatEuro(socio.creditoNoRetornable)}</p>
+            <p className="text-green-600 font-medium">Retornable: {formatEuro(socio.credito - socio.creditoNoRetornable)}</p>
+          </div>
         </div>
 
         {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
@@ -306,6 +350,13 @@ export default function SocioDetailPage() {
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors flex items-center gap-1"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Regenerar QR
+              </button>
+              <button
+                onClick={devolverCredito}
+                disabled={(socio.credito - socio.creditoNoRetornable) <= 0}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1"
+              >
+                <Wallet className="w-3.5 h-3.5" /> Devolver
               </button>
               <button
                 onClick={deleteSocio}
@@ -385,7 +436,7 @@ export default function SocioDetailPage() {
               <div key={t.id} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">
-                    {t.tipo === "carga" ? "Carga" : "Consumición"}
+                    {t.tipo === "carga" ? "Carga" : t.tipo === "devolucion" ? "Devolución" : "Consumición"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t.descripcion && <>{t.descripcion}<br /></>}
@@ -398,7 +449,7 @@ export default function SocioDetailPage() {
                     t.tipo === "carga" ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  {t.tipo === "carga" ? "+" : "-"}
+                  {t.tipo === "carga" ? "+" : t.tipo === "devolucion" ? "−" : "-"}
                   {formatEuro(t.cantidad)}
                 </span>
               </div>

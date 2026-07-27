@@ -15,12 +15,19 @@ export async function POST(request: Request) {
 
     const operador = await getOperador();
     const puntoVentaId = await getPuntoVentaId();
-    const descripcion = data.descripcion || `Recarga masiva: ${data.tipoVinculacion}`;
+    const esInicial = data.noRetornable === true;
+    const descripcion = data.descripcion || (esInicial
+      ? `Recarga inicial (no retornable): ${data.tipoVinculacion}`
+      : `Recarga masiva: ${data.tipoVinculacion}`);
 
     const result = await db.$transaction(async (tx) => {
-      const updateResult = await tx.socio.updateMany({
+      const updateData = esInicial
+        ? { credito: { increment: data.cantidad }, creditoNoRetornable: { increment: data.cantidad } }
+        : { credito: { increment: data.cantidad } };
+
+      await tx.socio.updateMany({
         where: { tipoVinculacion: data.tipoVinculacion as any },
-        data: { credito: { increment: data.cantidad } },
+        data: updateData,
       });
 
       const sociosActualizados = await tx.socio.findMany({

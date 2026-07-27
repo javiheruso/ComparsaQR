@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { href: "/admin/puntos", label: "Puntos", adminOnly: true },
   { href: "/admin/qr-masivo", label: "QR Masivo", adminOnly: true },
   { href: "/admin/recargar", label: "Recarga Masiva", adminOnly: true },
+  { href: "/admin/devoluciones", label: "Devoluciones", adminOnly: true },
   { href: "/scanner", label: "Escanear Pulsera", adminOnly: false },
 ];
 
@@ -88,6 +90,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="w-6 h-6" />
           </button>
+          <Image
+            src="/icon-48.png"
+            alt="Logo"
+            width={28}
+            height={28}
+            className="md:hidden"
+          />
+          <Image
+            src="/icon-48.png"
+            alt="Logo"
+            width={28}
+            height={28}
+            className="hidden md:block"
+          />
           <span className="font-bold text-lg">{mostrarNombre}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -141,8 +157,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             menuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-bold text-lg">{mostrarNombre}</span>
+          <div className="flex items-center gap-2 mb-4">
+            <Image src="/icon-48.png" alt="Logo" width={28} height={28} />
+            <span className="font-bold text-lg flex-1">{mostrarNombre}</span>
             <button
               onClick={() => setMenuOpen(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"

@@ -6,7 +6,10 @@ export const metadata: Metadata = {
   title: "Gestión Comparsa - Barraca",
   description: "Sistema de gestión de crédito para socios de comparsa",
   manifest: "/manifest.json",
-  icons: [{ rel: "icon", url: "/favicon.png", type: "image/png" }],
+  icons: [
+    { rel: "icon", url: "/favicon.ico", type: "image/x-icon" },
+    { rel: "icon", url: "/icon.svg", type: "image/svg+xml" },
+  ],
 };
 
 export const viewport: Viewport = {
