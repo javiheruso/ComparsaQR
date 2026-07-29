@@ -5,7 +5,28 @@ import { ArrowUpDown, Users, CreditCard, QrCode, Package, TrendingUp, ShoppingCa
 
 export const dynamic = "force-dynamic";
 
-async function getDashboardData() {
+type DashboardTransaction = {
+  id: number;
+  tipo: "carga" | "consumo" | "devolucion";
+  cantidad: number;
+  descripcion: string | null;
+  socio: {
+    nombre: string;
+    numeroSocio: string;
+  };
+};
+
+type DashboardData = {
+  totalSocios: number;
+  activos: number;
+  creditoTotal: { _sum: { credito: number | null } };
+  ultimasTransacciones: DashboardTransaction[];
+  ventasHoy: number;
+  totalConsumido: number;
+  totalCargado: number;
+};
+
+async function getDashboardData(): Promise<DashboardData> {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -121,7 +142,7 @@ export default async function AdminDashboard() {
               No hay transacciones todavía
             </p>
           ) : (
-            ultimasTransacciones.map((t) => (
+            ultimasTransacciones.map((t: DashboardTransaction) => (
               <div
                 key={t.id}
                 className="px-4 py-3 flex items-center justify-between"

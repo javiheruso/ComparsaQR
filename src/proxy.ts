@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
+import { canAccessAdmin } from "@/lib/access";
 
 const PUBLIC_PATHS = [
-  "/api/auth",
-  "/api/scanner-auth",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/scanner-auth/login",
   "/api/heartbeat",
   "/scanner",
   "/_next",
@@ -25,7 +27,8 @@ export default async function proxy(request: NextRequest) {
   }
 
   const session = await getSession();
-  const isAuthenticated = session.isLoggedIn || session.scannerVerified;
+  const isAdmin = canAccessAdmin(session);
+  const isAuthenticated = Boolean(session.actorType || session.isLoggedIn || session.scannerVerified);
 
   if (!isAuthenticated) {
     if (pathname.startsWith("/admin")) {
@@ -35,6 +38,10 @@ export default async function proxy(request: NextRequest) {
     if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+  }
+
+  if (pathname.startsWith("/admin") && !isAdmin) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

@@ -3,13 +3,17 @@ import { getIronSession } from "iron-session";
 import bcrypt from "bcryptjs";
 import { createHash, timingSafeEqual } from "crypto";
 import { db } from "./db";
+import { canAccessScanner, getActorContext } from "./access";
 
 export interface SessionData {
   isLoggedIn: boolean;
   scannerVerified: boolean;
+  actorType?: "admin" | "scanner" | "punto";
+  actorId?: string;
   puntoVentaId?: number;
   puntoNombre?: string;
   puntoPermiso?: PermisoPunto;
+  sessionVersion?: number;
 }
 
 export type PermisoPunto = "barra" | "caja";
@@ -47,6 +51,13 @@ export async function getSession() {
 
   if (!session.isLoggedIn) session.isLoggedIn = false;
   if (!session.scannerVerified) session.scannerVerified = false;
+  if (!session.sessionVersion) session.sessionVersion = 1;
+
+  const actor = getActorContext(session);
+  if (actor.actorType !== "anonymous") {
+    session.actorType = actor.actorType;
+    session.actorId = actor.actorId ?? undefined;
+  }
 
   return session;
 }
@@ -58,9 +69,12 @@ export async function login(password: string, secureCookie?: boolean): Promise<s
     const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
     session.isLoggedIn = true;
     session.scannerVerified = false;
+    session.actorType = "admin";
+    session.actorId = "admin";
     session.puntoVentaId = undefined;
     session.puntoNombre = undefined;
     session.puntoPermiso = undefined;
+    session.sessionVersion = 1;
     await session.save();
     return "admin";
   }
@@ -74,9 +88,12 @@ export async function login(password: string, secureCookie?: boolean): Promise<s
     const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
     session.isLoggedIn = false;
     session.scannerVerified = true;
+    session.actorType = "scanner";
+    session.actorId = "scanner";
     session.puntoVentaId = undefined;
     session.puntoNombre = undefined;
     session.puntoPermiso = undefined;
+    session.sessionVersion = 1;
     await session.save();
     return "scanner";
   }
@@ -92,9 +109,12 @@ async function loginPuntoVenta(password: string, secureCookie?: boolean): Promis
       const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
       session.isLoggedIn = false;
       session.scannerVerified = true;
+      session.actorType = "punto";
+      session.actorId = `punto:${punto.id}`;
       session.puntoVentaId = punto.id;
       session.puntoNombre = punto.nombre;
       session.puntoPermiso = punto.permiso;
+      session.sessionVersion = 1;
       await session.save();
       return punto.permiso;
     }
@@ -110,20 +130,22 @@ export async function logout(secureCookie?: boolean) {
 
 export async function hasScannerAccess(): Promise<boolean> {
   const session = await getSession();
-  return Boolean(session.isLoggedIn || session.scannerVerified);
+  return canAccessScanner(session);
 }
 
 export async function getOperador(): Promise<string | null> {
   const session = await getSession();
-  if (session.isLoggedIn) return "admin";
-  if (session.puntoNombre) return session.puntoNombre;
-  if (session.scannerVerified) return "scanner";
+  const actor = getActorContext(session);
+  if (actor.actorType === "admin") return "admin";
+  if (actor.actorType === "punto") return session.puntoNombre ?? "punto";
+  if (actor.actorType === "scanner") return "scanner";
   return null;
 }
 
 export async function getPuntoPermiso(): Promise<PermisoPunto | "admin" | null> {
   const session = await getSession();
-  if (session.isLoggedIn) return "admin";
+  const actor = getActorContext(session);
+  if (actor.actorType === "admin") return "admin";
   if (session.puntoPermiso === "barra" || session.puntoPermiso === "caja") return session.puntoPermiso;
   return null;
 }

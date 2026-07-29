@@ -4,6 +4,15 @@ import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
+type PuntoResponse = {
+  id: number;
+  nombre: string;
+  permiso: string;
+  activo: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 const createPuntoSchema = z.object({
   nombre: z.string().min(1).max(50),
   password: z.string().min(4).max(100),
@@ -17,7 +26,7 @@ export async function GET() {
   }
 
   const puntos = await db.puntoVenta.findMany({ orderBy: { nombre: "asc" } });
-  const sinPasswords = puntos.map((p) => ({
+  const sinPasswords = puntos.map((p: PuntoResponse) => ({
     id: p.id, nombre: p.nombre, permiso: p.permiso, activo: p.activo,
     createdAt: p.createdAt, updatedAt: p.updatedAt,
   }));

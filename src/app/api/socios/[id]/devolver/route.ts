@@ -1,20 +1,22 @@
-import { db } from "@/lib/db";
-import { getSession, getOperador, getPuntoVentaId, getPuntoPermiso } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { devolucionSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import { requireAccess } from "@/lib/access";
+import { MoneyCommandError, refundMember } from "@/lib/money-commands";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession();
-  if (!session.isLoggedIn) {
-    return apiError("No autorizado", 401);
-  }
+  const access = requireAccess(session, {
+    allowRoles: ["admin"],
+    unauthenticatedMessage: "No autorizado",
+    forbiddenMessage: "No tienes permiso para realizar devoluciones",
+  });
 
-  const permiso = await getPuntoPermiso();
-  if (permiso && permiso !== "admin") {
-    return apiError("No tienes permiso para realizar devoluciones", 403);
+  if (!access.ok) {
+    return apiError(access.message, access.status);
   }
 
   try {
@@ -27,41 +29,19 @@ export async function POST(
     const body = await request.json();
     const { cantidad } = devolucionSchema.parse(body);
 
-    const socio = await db.socio.findUnique({ where: { id: socioIdNum } });
-
-    if (!socio) {
-      return apiError("Socio no encontrado", 404);
-    }
-
-    const retornable = socio.credito - socio.creditoNoRetornable;
-    if (cantidad > retornable) {
-      return apiError("La cantidad a devolver supera el saldo retornable", 400, {
-        retornable,
-        credito: socio.credito,
-        creditoNoRetornable: socio.creditoNoRetornable,
-      });
-    }
-
-    const updated = await db.$transaction(async (tx) => {
-      const s = await tx.socio.update({
-        where: { id: socioIdNum },
-        data: { credito: { decrement: cantidad } },
-      });
-      await tx.transaccion.create({
-        data: {
-          socioId: socioIdNum,
-          tipo: "devolucion",
-          cantidad,
-          descripcion: "Devolución de crédito retornable",
-          operador: await getOperador(),
-          puntoVentaId: await getPuntoVentaId(),
-        },
-      });
-      return s;
+    const result = await refundMember({
+      socioId: socioIdNum,
+      cantidad,
+      session,
+      idempotencyKey: request.headers.get("x-idempotency-key"),
     });
 
-    return apiSuccess(updated);
+    return apiSuccess(result.body, result.statusCode);
   } catch (err) {
+    if (err instanceof MoneyCommandError) {
+      return apiError(err.message, err.statusCode, err.details);
+    }
+
     return handleApiError(err, "Error al devolver crédito");
   }
 }

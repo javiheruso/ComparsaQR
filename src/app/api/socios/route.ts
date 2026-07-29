@@ -5,9 +5,9 @@ import { createSocioSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
 
 async function generarNumeroSocio(): Promise<string> {
-  const [result] = await db.$queryRawUnsafe<{ nextval: number }[]>(
+  const [result] = await db.$queryRawUnsafe(
     `SELECT nextval('"Socio_numero_sequence"') AS nextval`
-  );
+  ) as Array<{ nextval: number }>;
   return `s-${String(result.nextval).padStart(3, "0")}`;
 }
 

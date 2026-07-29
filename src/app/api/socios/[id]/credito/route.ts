@@ -1,20 +1,23 @@
-import { db } from "@/lib/db";
-import { getSession, getOperador, getPuntoPermiso, getPuntoVentaId } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { creditoSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import { requireAccess } from "@/lib/access";
+import { creditMember, MoneyCommandError } from "@/lib/money-commands";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession();
-  if (!session.isLoggedIn) {
-    return apiError("No autorizado", 401);
-  }
+  const access = requireAccess(session, {
+    allowRoles: ["admin", "punto"],
+    allowedPuntoPermissions: ["caja"],
+    unauthenticatedMessage: "No autorizado",
+    forbiddenMessage: "Este punto no tiene permiso para recargar",
+  });
 
-  const permiso = await getPuntoPermiso();
-  if (permiso && permiso !== "admin" && permiso !== "caja") {
-    return apiError("Este punto no tiene permiso para recargar", 403);
+  if (!access.ok) {
+    return apiError(access.message, access.status);
   }
 
   try {
@@ -27,36 +30,20 @@ export async function POST(
     const body = await request.json();
     const { cantidad, descripcion } = creditoSchema.parse(body);
 
-    const socio = await db.socio.findUnique({ where: { id: socioIdNum } });
-
-    if (!socio) {
-      return apiError("Socio no encontrado", 404);
-    }
-
-    if (socio.estadoPulsera !== "activa") {
-      return apiError("No se puede recargar a un socio inactivo", 403);
-    }
-
-    const updated = await db.$transaction(async (tx) => {
-      const s = await tx.socio.update({
-        where: { id: socioIdNum },
-        data: { credito: { increment: cantidad } },
-      });
-      await tx.transaccion.create({
-        data: {
-          socioId: socioIdNum,
-          tipo: "carga",
-          cantidad,
-          descripcion: descripcion ?? null,
-          operador: await getOperador(),
-          puntoVentaId: await getPuntoVentaId(),
-        },
-      });
-      return s;
+    const result = await creditMember({
+      socioId: socioIdNum,
+      cantidad,
+      descripcion,
+      session,
+      idempotencyKey: request.headers.get("x-idempotency-key"),
     });
 
-    return apiSuccess(updated);
+    return apiSuccess(result.body, result.statusCode);
   } catch (err) {
+    if (err instanceof MoneyCommandError) {
+      return apiError(err.message, err.statusCode, err.details);
+    }
+
     return handleApiError(err, "Error al cargar crédito");
   }
 }
