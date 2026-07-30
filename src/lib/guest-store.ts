@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 import { db } from "./db";
 import { moneyToNumber, parseMoney } from "./money";
@@ -13,21 +14,7 @@ type GuestSessionRecord = {
   lastChargeAt: Date | null;
 };
 
-export type GuestStoreClient = {
-  guestSession: {
-    findUnique(args: { where: { id: number } }): Promise<GuestSessionRecord | null>;
-    create(args: {
-      data: { id: number; balance: Decimal; lastChargeAt: Date | null };
-    }): Promise<GuestSessionRecord>;
-    update(args: {
-      where: { id: number };
-      data: {
-        balance?: Decimal | { decrement: Decimal };
-        lastChargeAt?: Date | null;
-      };
-    }): Promise<GuestSessionRecord>;
-  };
-};
+export type GuestStoreClient = Pick<PrismaClient, "guestSession">;
 
 export type GuestProfile = {
   id: number;
@@ -38,7 +25,7 @@ export type GuestProfile = {
 };
 
 function getGuestClient(client?: GuestStoreClient) {
-  return client ?? (db as GuestStoreClient);
+  return client ?? db;
 }
 
 function toGuestProfile(session: GuestSessionRecord): GuestProfile {
