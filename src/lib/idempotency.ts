@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
+import type { Prisma } from "@/generated/prisma/client";
 
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue = Prisma.JsonValue;
+type JsonObject = Prisma.JsonObject;
 
 export interface IdempotencyResponse<TBody extends JsonValue = JsonValue> {
   statusCode: number;
@@ -71,7 +72,7 @@ export class IdempotencyAlreadyExistsError extends Error {
   }
 }
 
-function isPlainObject(value: JsonValue): value is { [key: string]: JsonValue } {
+function isPlainObject(value: JsonValue): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
