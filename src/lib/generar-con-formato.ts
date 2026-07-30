@@ -9,6 +9,7 @@ interface Socio {
 }
 
 interface Medidas {
+  shape: "rounded" | "rect";
   cardW: number;
   cardH: number;
   cols: number;
@@ -47,7 +48,7 @@ const LLAVEROS: Medidas = (() => {
   const holeDiam = 3;
   const holeX = cardW - 5;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
-  return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
+  return { shape: "rounded", cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
 })();
 
 const PULSERAS: Medidas = (() => {
@@ -62,8 +63,52 @@ const PULSERAS: Medidas = (() => {
   const holeDiam = 0;
   const holeX = 0;
   const { marginLeft, marginTop } = calcularMargenes(cardW, cardH, cols, rows, gap);
-  return { cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
+  return { shape: "rect", cardW, cardH, cols, rows, gap, marginLeft, marginTop, qrSize, qrX, qrY, textX, textY, textW, textH, holeDiam, holeX };
 })();
+
+function getMedidasEtiquetaIndividual(formato: TipoFormato): Medidas {
+  if (formato === "llaveros") {
+    return {
+      shape: "rounded",
+      cardW: 45,
+      cardH: 25,
+      cols: 1,
+      rows: 1,
+      gap: 0,
+      marginLeft: 0,
+      marginTop: 0,
+      qrSize: 16.5,
+      qrX: 3.5,
+      qrY: 4.25,
+      textX: 21,
+      textY: 4.5,
+      textW: 18,
+      textH: 16,
+      holeDiam: 2.5,
+      holeX: 40.5,
+    };
+  }
+
+  return {
+    shape: "rect",
+    cardW: 45,
+    cardH: 25,
+    cols: 1,
+    rows: 1,
+    gap: 0,
+    marginLeft: 0,
+    marginTop: 0,
+    qrSize: 17,
+    qrX: 3,
+    qrY: 4,
+    textX: 21,
+    textY: 5,
+    textW: 20,
+    textH: 15,
+    holeDiam: 0,
+    holeX: 0,
+  };
+}
 
 export function getMedidas(formato: TipoFormato): Medidas {
   return formato === "llaveros" ? LLAVEROS : PULSERAS;
@@ -134,7 +179,7 @@ function dibujarFondoEtiquetaPDF(doc: any, x: number, y: number, medidas: Medida
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(lineW);
 
-  if (medidas.cardH === LLAVEROS.cardH) {
+  if (medidas.shape === "rounded") {
     const r = medidas.cardH / 2;
     doc.roundedRect(x, y, medidas.cardW, medidas.cardH, r, r);
 
@@ -144,6 +189,51 @@ function dibujarFondoEtiquetaPDF(doc: any, x: number, y: number, medidas: Medida
     }
   } else {
     doc.rect(x, y, medidas.cardW, medidas.cardH);
+  }
+}
+
+async function dibujarEtiquetaPDF(
+  doc: any,
+  x: number,
+  y: number,
+  medidas: Medidas,
+  socio: Socio,
+  qrModule: any
+): Promise<void> {
+  dibujarFondoEtiquetaPDF(doc, x, y, medidas);
+
+  const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
+  const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
+    width: 250,
+    margin: 1,
+    color: { dark: "#000000", light: "#FFFFFF" },
+  });
+
+  const qrClampY = Math.max(0, y + medidas.qrY);
+  const qrClampH = Math.min(medidas.qrSize, y + medidas.cardH - qrClampY);
+  if (qrClampH > 0) {
+    doc.addImage(qrDataUrl, "PNG", x + medidas.qrX, qrClampY, medidas.qrSize, qrClampH, undefined, "FAST");
+  }
+
+  const textos = obtenerTextos(socio);
+  const medirTexto = (texto: string, tam: number): number => {
+    doc.setFont("Impact", "normal");
+    doc.setFontSize(tam);
+    return doc.getTextWidth(texto) * 0.85;
+  };
+
+  const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
+  const ptToMm = 0.353;
+  const lineSpacing = 0.5;
+
+  doc.setFont("Impact", "normal");
+  doc.setFontSize(fontSize);
+
+  let textY = y + medidas.textY + fontSize * ptToMm;
+  for (const texto of textos) {
+    if (!texto) continue;
+    doc.text(texto, x + medidas.textX, textY);
+    textY += fontSize * ptToMm + lineSpacing;
   }
 }
 
@@ -165,46 +255,7 @@ export async function generarPaginaPDF(
 
     const socio = socios[socioIdx];
     const pos = getPosicionEtiqueta(i, medidas);
-
-    if (i === 0) {
-      dibujarFondoEtiquetaPDF(doc, pos.x, pos.y, medidas);
-    } else {
-      dibujarFondoEtiquetaPDF(doc, pos.x, pos.y, medidas);
-    }
-
-    const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
-    const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
-      width: 250,
-      margin: 1,
-      color: { dark: "#000000", light: "#FFFFFF" },
-    });
-
-    const qrClampY = Math.max(0, pos.y + medidas.qrY);
-    const qrClampH = Math.min(medidas.qrSize, pos.y + medidas.cardH - qrClampY);
-    if (qrClampH > 0) {
-      doc.addImage(qrDataUrl, "PNG", pos.x + medidas.qrX, qrClampY, medidas.qrSize, qrClampH, undefined, "FAST");
-    }
-
-    const textos = obtenerTextos(socio);
-    const medirTexto = (texto: string, tam: number): number => {
-      doc.setFont("Impact", "normal");
-      doc.setFontSize(tam);
-      return doc.getTextWidth(texto) * 0.85;
-    };
-
-    const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
-    const ptToMm = 0.353;
-    const lineSpacing = 0.5;
-
-    doc.setFont("Impact", "normal");
-    doc.setFontSize(fontSize);
-
-    let textY = pos.y + medidas.textY + fontSize * ptToMm;
-    for (const texto of textos) {
-      if (!texto) continue;
-      doc.text(texto, pos.x + medidas.textX, textY);
-      textY += fontSize * ptToMm + lineSpacing;
-    }
+    await dibujarEtiquetaPDF(doc, pos.x, pos.y, medidas, socio, qrModule);
   }
 }
 
@@ -386,47 +437,12 @@ export async function generarEtiquetaPDF(
 ): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
   const qrModule = await import("qrcode");
-  const doc = new jsPDF("p", "mm", "a4");
-
-  const medidas = getMedidas(formato);
-  const pageW = 210;
-  const pageH = 297;
-  const x = (pageW - medidas.cardW) / 2;
-  const y = (pageH - medidas.cardH) / 2;
+  const medidas = getMedidasEtiquetaIndividual(formato);
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [medidas.cardW, medidas.cardH] });
 
   await cargarFuenteImpactPDF(doc);
 
-  dibujarFondoEtiquetaPDF(doc, x, y, medidas);
-
-  const qrUrl = `${window.location.origin}/scanner/result?token=${socio.qrToken}`;
-  const qrDataUrl = await qrModule.default.toDataURL(qrUrl, {
-    width: 250,
-    margin: 1,
-    color: { dark: "#000000", light: "#FFFFFF" },
-  });
-
-  doc.addImage(qrDataUrl, "PNG", x + medidas.qrX, y + medidas.qrY, medidas.qrSize, medidas.qrSize, undefined, "FAST");
-
-  const textos = obtenerTextos(socio);
-  const medirTexto = (texto: string, tam: number): number => {
-    doc.setFont("Impact", "normal");
-    doc.setFontSize(tam);
-    return doc.getTextWidth(texto) * 0.85;
-  };
-
-  const fontSize = calcularFontSize(textos, medidas.textW, medidas.textH, medirTexto);
-  const ptToMm = 0.353;
-  const lineSpacing = 0.5;
-
-  doc.setFont("Impact", "normal");
-  doc.setFontSize(fontSize);
-
-  let textY = y + medidas.textY + fontSize * ptToMm;
-  for (const texto of textos) {
-    if (!texto) continue;
-    doc.text(texto, x + medidas.textX, textY);
-    textY += fontSize * ptToMm + lineSpacing;
-  }
+  await dibujarEtiquetaPDF(doc, 0, 0, medidas, socio, qrModule);
 
   const prefijo = formato === "llaveros" ? "llavero" : "pulsera";
   doc.save(`${prefijo}-${socio.numeroSocio}.pdf`);
