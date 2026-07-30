@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 export type JsonValue = Prisma.JsonValue;
 type JsonObject = Prisma.JsonObject;
@@ -36,17 +37,6 @@ interface PrismaIdempotencyRecordRow {
   updatedAt: Date;
 }
 
-interface PrismaIdempotencyDelegate {
-  findUnique(args: { where: { scope_key: { scope: string; key: string } } }): Promise<PrismaIdempotencyRecordRow | null>;
-  create(args: {
-    data: { scope: string; key: string; requestHash: string; status: string };
-  }): Promise<PrismaIdempotencyRecordRow>;
-  update(args: {
-    where: { scope_key: { scope: string; key: string } };
-    data: { status: string; responseCode: number; responseBody: JsonValue };
-  }): Promise<PrismaIdempotencyRecordRow>;
-}
-
 export class IdempotencyConflictError extends Error {
   readonly statusCode = 409;
 
@@ -74,6 +64,14 @@ export class IdempotencyAlreadyExistsError extends Error {
 
 function isPlainObject(value: JsonValue): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toPrismaJsonInput(value: JsonValue): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
+  if (value === null) {
+    return Prisma.JsonNull;
+  }
+
+  return value as Prisma.InputJsonValue;
 }
 
 export function canonicalizePayload(payload: JsonValue): string {
@@ -169,9 +167,7 @@ function mapRecord(row: PrismaIdempotencyRecordRow): IdempotencyRecord {
   };
 }
 
-export function createPrismaIdempotencyStore(client: {
-  idempotencyRecord: PrismaIdempotencyDelegate;
-}): IdempotencyStore {
+export function createPrismaIdempotencyStore(client: Pick<PrismaClient, "idempotencyRecord">): IdempotencyStore {
   return {
     async find(scope, key) {
       const record = await client.idempotencyRecord.findUnique({
@@ -211,7 +207,7 @@ export function createPrismaIdempotencyStore(client: {
         data: {
           status: "completed",
           responseCode: response.statusCode,
-          responseBody: response.body,
+          responseBody: toPrismaJsonInput(response.body),
         },
       });
 
