@@ -84,7 +84,12 @@ export function canonicalizePayload(payload: JsonValue): string {
   if (isPlainObject(payload)) {
     const entries = Object.keys(payload)
       .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalizePayload(payload[key])}`);
+      .flatMap((key) => {
+        const value = payload[key];
+        return value === undefined
+          ? []
+          : [`${JSON.stringify(key)}:${canonicalizePayload(value)}`];
+      });
 
     return `{${entries.join(",")}}`;
   }
