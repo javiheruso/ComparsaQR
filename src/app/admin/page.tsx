@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import { moneyToNumber } from "@/lib/money";
 import { ArrowUpDown, Users, CreditCard, QrCode, Package, TrendingUp, ShoppingCart } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ type DashboardTransaction = {
 type DashboardData = {
   totalSocios: number;
   activos: number;
-  creditoTotal: { _sum: { credito: number | null } };
+  creditoTotal: number;
   ultimasTransacciones: DashboardTransaction[];
   ventasHoy: number;
   totalConsumido: number;
@@ -62,17 +63,20 @@ async function getDashboardData(): Promise<DashboardData> {
     return {
       totalSocios,
       activos,
-      creditoTotal,
-      ultimasTransacciones,
-      ventasHoy: transaccionesHoy._sum.cantidad ?? 0,
-      totalConsumido: totalConsumido._sum.cantidad ?? 0,
-      totalCargado: totalCargado._sum.cantidad ?? 0,
+      creditoTotal: creditoTotal._sum.credito ? moneyToNumber(creditoTotal._sum.credito) : 0,
+      ultimasTransacciones: ultimasTransacciones.map((transaccion) => ({
+        ...transaccion,
+        cantidad: moneyToNumber(transaccion.cantidad),
+      })),
+      ventasHoy: transaccionesHoy._sum.cantidad ? moneyToNumber(transaccionesHoy._sum.cantidad) : 0,
+      totalConsumido: totalConsumido._sum.cantidad ? moneyToNumber(totalConsumido._sum.cantidad) : 0,
+      totalCargado: totalCargado._sum.cantidad ? moneyToNumber(totalCargado._sum.cantidad) : 0,
     };
   } catch {
     return {
       totalSocios: 0,
       activos: 0,
-      creditoTotal: { _sum: { credito: 0 } },
+      creditoTotal: 0,
       ultimasTransacciones: [],
       ventasHoy: 0,
       totalConsumido: 0,
@@ -88,7 +92,7 @@ export default async function AdminDashboard() {
   const stats = [
     { label: "Total Socios", value: totalSocios, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
     { label: "Pulseras Activas", value: activos, icon: QrCode, color: "text-green-600", bg: "bg-green-100" },
-    { label: "Crédito en Cartera", value: formatEuro(creditoTotal._sum.credito ?? 0), icon: CreditCard, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: "Crédito en Cartera", value: formatEuro(creditoTotal), icon: CreditCard, color: "text-purple-600", bg: "bg-purple-100" },
     { label: "Ventas Hoy", value: formatEuro(ventasHoy), icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-100" },
     { label: "Total Consumido", value: formatEuro(totalConsumido), icon: ShoppingCart, color: "text-red-600", bg: "bg-red-100" },
     { label: "Total Cargado", value: formatEuro(totalCargado), icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
