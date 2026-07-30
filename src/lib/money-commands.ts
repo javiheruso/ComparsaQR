@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 import type { SessionData } from "@/lib/auth";
 import { getActorContext } from "@/lib/access";
@@ -46,45 +47,10 @@ type MoneyTransactionRecord = {
   id: number;
 };
 
-type MoneyDbClient = GuestStoreClient & {
-  socio: {
-    findUnique(args: {
-      where: { id: number };
-      select?: Record<string, boolean>;
-    }): Promise<MemberRecord | Pick<MemberRecord, "creditoNoRetornable"> | null>;
-    update(args: {
-      where: { id: number };
-      data: { credito?: { increment?: Decimal; decrement?: Decimal } };
-    }): Promise<MemberRecord>;
-    updateMany(args: {
-      where: { id: number; estadoPulsera?: string; credito?: { gte: Decimal } };
-      data: {
-        credito?: { decrement?: Decimal };
-        creditoNoRetornable?: { decrement?: Decimal };
-      };
-    }): Promise<{ count: number }>;
-  };
-  producto: {
-    findMany(args: {
-      where: { id: { in: number[] } };
-      select?: Record<string, boolean>;
-    }): Promise<ProductRecord[]>;
-  };
-  transaccion: {
-    create(args: {
-      data: {
-        socioId: number;
-        tipo: "carga" | "consumo" | "devolucion";
-        cantidad: Decimal;
-        descripcion: string | null;
-        operador: string | null;
-        puntoVentaId: number | null;
-      };
-    }): Promise<MoneyTransactionRecord>;
-  };
-  idempotencyRecord: Parameters<typeof createPrismaIdempotencyStore>[0]["idempotencyRecord"];
-  $transaction?<T>(callback: (tx: MoneyDbClient) => Promise<T>): Promise<T>;
-};
+type MoneyDbClient = Pick<
+  PrismaClient,
+  "guestSession" | "socio" | "producto" | "transaccion" | "idempotencyRecord" | "$transaction"
+>;
 
 type MoneyResponse = {
   id: number;
@@ -118,7 +84,7 @@ export class MoneyCommandError extends Error {
 }
 
 function getMoneyClient(client?: MoneyDbClient): MoneyDbClient {
-  return client ?? (db as MoneyDbClient);
+  return client ?? db;
 }
 
 function getActorMetadata(session: MoneyActorSession) {
