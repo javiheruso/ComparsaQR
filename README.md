@@ -41,6 +41,7 @@ Sistema de gestión de crédito para socios de comparsa mediante pulseras con QR
 | `SCANNER_PASSWORD` | Contraseña del escáner (debe diferir de admin) |
 | `SESSION_SECRET` | Secreto para encriptar sesiones (32+ caracteres) |
 | `NEXT_PUBLIC_APP_URL` | URL base de la app |
+| `CRON_SECRET` | Opcional. Protege `/api/heartbeat` para que solo Vercel Cron lo invoque |
 | `GUEST_QR_TOKEN` | Token para el QR de invitado (opcional) |
 
 3. Inicia PostgreSQL: `docker compose up -d`
@@ -111,4 +112,4 @@ src/
 
 ## Despliegue
 
-Configurado para Vercel con cron job de heartbeat cada 2 días para evitar suspensión de BD gratuita.
+Configurado para Vercel con cron job de heartbeat cada 12 horas (`/api/heartbeat`) para reducir el riesgo de pausa por inactividad en la BD gratuita. Si configuras `CRON_SECRET` en Vercel, el endpoint valida automáticamente el `Authorization` header que envía Vercel Cron.
