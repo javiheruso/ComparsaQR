@@ -6,6 +6,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { formatEuro } from "@/lib/utils";
 import { ArrowLeft, QrCode, RefreshCw, Wallet } from "lucide-react";
 import { generarEtiquetaPDF } from "@/lib/generar-con-formato";
+import {
+  QR_DELETE_CONFIRMATION_TEXT,
+  QR_REGEN_CONFIRMATION_TEXT,
+} from "@/lib/qr-token-protection";
 
 interface Socio {
   id: number;
@@ -105,15 +109,27 @@ export default function SocioDetailPage() {
   };
 
   const regenerarQr = async () => {
-    if (!confirm("¿Regenerar el QR? El código actual dejará de funcionar y la pulsera se marcará como perdida.")) return;
+    if (!socio) return;
+    const confirmationText = prompt(
+      `Esto invalidará el QR actual de ${socio.nombre} y marcará la pulsera como perdida.\n\nEscribe ${QR_REGEN_CONFIRMATION_TEXT} para continuar.`
+    );
+    if (!confirmationText) return;
     setError(null);
     const res = await fetch(`/api/socios/${params.id}/regenerar-qr`, {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        confirmationText,
+        currentToken: socio.qrToken,
+      }),
     });
     if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       const updated = await res.json();
       setSocio(updated);
+    } else {
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? "No se pudo regenerar el QR");
     }
   };
 
@@ -144,13 +160,26 @@ export default function SocioDetailPage() {
   };
 
   const deleteSocio = async () => {
-    if (!confirm("¿Eliminar este socio? Esta acción no se puede deshacer.")) return;
+    if (!socio) return;
+    const confirmationText = prompt(
+      `Esto eliminará a ${socio.nombre} pero dejará auditado su QR actual para poder recuperarlo desde copia o historial.\n\nEscribe ${QR_DELETE_CONFIRMATION_TEXT} para continuar.`
+    );
+    if (!confirmationText) return;
+    setError(null);
     const res = await fetch(`/api/socios/${params.id}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        confirmationText,
+        currentToken: socio.qrToken,
+      }),
     });
     if (res.status === 401) { window.location.href = "/"; return; }
     if (res.ok) {
       router.push("/admin/socios");
+    } else {
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? "No se pudo eliminar el socio");
     }
   };
 

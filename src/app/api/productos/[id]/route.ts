@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { productoSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import { serializeProduct } from "@/lib/product-serialization";
 
 export async function PUT(
   request: Request,
@@ -25,7 +26,7 @@ export async function PUT(
       where: { id: productoId },
       data,
     });
-    return apiSuccess(producto);
+    return apiSuccess(serializeProduct(producto));
   } catch (err) {
     return handleApiError(err, "Error al actualizar producto");
   }

@@ -87,7 +87,16 @@ function ScannerResultContent() {
         }
         return res.json();
       }),
-      fetch("/api/productos").then((r) => r.json()),
+      fetch("/api/productos").then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Error al cargar productos");
+        }
+        if (!Array.isArray(data)) {
+          throw new Error("Respuesta de productos no válida");
+        }
+        return data;
+      }),
     ])
       .then(([socioData, productosData]) => {
         setSocio(socioData);

@@ -24,7 +24,11 @@ export default function ProductosPage() {
     try {
       const res = await fetch("/api/productos");
       if (res.status === 401) { window.location.href = "/"; return; }
-      setProductos(await res.json());
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? "No se pudieron cargar los productos");
+      }
+      setProductos(Array.isArray(data) ? data : []);
     } catch {
       setProductos([]);
     } finally {

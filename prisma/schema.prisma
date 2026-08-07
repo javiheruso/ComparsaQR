@@ -59,11 +59,25 @@ model Socio {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   transacciones    Transaccion[]
+  qrTokenAudits    QrTokenAudit[]
 
   @@index([nombre])
   @@index([apellido1])
   @@index([apellido2])
   @@index([numeroSocio])
+}
+
+model QrTokenAudit {
+  id         Int      @id @default(autoincrement())
+  socioId     Int
+  socio       Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  action      String
+  oldQrToken  String
+  newQrToken  String?
+  actor       String?
+  createdAt   DateTime @default(now())
+
+  @@index([socioId, createdAt])
 }
 
 model Producto {

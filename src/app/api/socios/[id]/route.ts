@@ -1,7 +1,12 @@
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getOperador, getSession } from "@/lib/auth";
 import { updateSocioSchema } from "@/lib/schemas";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import {
+  matchesConfirmation,
+  QR_DELETE_CONFIRMATION_TEXT,
+  qrDangerousActionSchema,
+} from "@/lib/qr-token-protection";
 
 export async function GET(
   _request: Request,
@@ -68,7 +73,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession();
@@ -82,8 +87,40 @@ export async function DELETE(
     return apiError("ID de socio no válido", 400);
   }
 
-  // Cascade delete handles Transaccion cleanup
-  await db.socio.delete({ where: { id: socioId } });
+  const body = await request.json().catch(() => null);
+  const parsed = qrDangerousActionSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError("Confirmación inválida", 400, parsed.error.issues);
+  }
+
+  if (!matchesConfirmation(QR_DELETE_CONFIRMATION_TEXT, parsed.data.confirmationText)) {
+    return apiError(`Escribe exactamente \"${QR_DELETE_CONFIRMATION_TEXT}\" para continuar`, 400);
+  }
+
+  const socio = await db.socio.findUnique({ where: { id: socioId } });
+  if (!socio) {
+    return apiError("Socio no encontrado", 404);
+  }
+
+  if (parsed.data.currentToken !== socio.qrToken) {
+    return apiError("El QR ha cambiado desde que abriste esta ficha. Recarga antes de continuar.", 409);
+  }
+
+  const actor = await getOperador();
+
+  await db.$transaction(async (tx) => {
+    await tx.qrTokenAudit.create({
+      data: {
+        socioId,
+        action: "deleted",
+        oldQrToken: socio.qrToken,
+        newQrToken: null,
+        actor,
+      },
+    });
+
+    await tx.socio.delete({ where: { id: socioId } });
+  });
 
   return apiSuccess({ success: true });
 }
