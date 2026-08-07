@@ -13,6 +13,7 @@ import { moneyToNumber, parseMoney, serializeMoney } from "@/lib/money";
 type TipoVinculacion = "socio" | "hijo_socio" | "hijos_mayores" | "socios_menores";
 type EstadoPulsera = "activa" | "inactiva" | "perdida";
 type BatchMutationAction = "created" | "updated" | "unchanged";
+type MatchStrength = "numeroSocio" | "dni" | "name" | "none";
 
 type SocioRecord = {
   id: number;
@@ -160,20 +161,45 @@ async function findExistingSocio(tx: BatchSyncClient, row: GestionImportRow | Ge
 
   if (numeroSocio) {
     const foundByNumber = await tx.socio.findUnique({ where: { numeroSocio } });
-    if (foundByNumber) return foundByNumber;
+    if (foundByNumber) return { socio: foundByNumber, strength: "numeroSocio" as const };
   }
 
   if (dni) {
     const foundByDni = await tx.socio.findUnique({ where: { dni } });
-    if (foundByDni) return foundByDni;
+    if (foundByDni) return { socio: foundByDni, strength: "dni" as const };
   }
 
   const allSocios = await tx.socio.findMany();
   const targetName = normalizeName(`${row.nombre} ${row.apellidos}`);
 
-  return (
-    allSocios.find((socio) => normalizeName([socio.nombre, socio.apellido1, socio.apellido2].filter(Boolean).join(" ")) === targetName) ?? null
-  );
+   const foundByName =
+    allSocios.find((socio) => normalizeName([socio.nombre, socio.apellido1, socio.apellido2].filter(Boolean).join(" ")) === targetName) ?? null;
+
+  if (foundByName) {
+    return { socio: foundByName, strength: "name" as const };
+  }
+
+  return { socio: null, strength: "none" as const };
+}
+
+function buildConflictReason(params: {
+  rowName: string;
+  numeroSocio: string | null;
+  dni: string | null;
+  strength: MatchStrength;
+  matchedSocio?: SocioRecord | null;
+}) {
+  const { rowName, numeroSocio, dni, strength, matchedSocio } = params;
+
+  if (strength === "name" && matchedSocio) {
+    return `${rowName}: coincidencia solo por nombre con ${matchedSocio.numeroSocio}; no se crea ni actualiza sin numeroSocio/DNI consistente`;
+  }
+
+  if (!numeroSocio && !dni) {
+    return `${rowName}: sin numeroSocio ni DNI; no se crea socio nuevo con match débil`;
+  }
+
+  return `${rowName}: conflicto de identificación; revisión manual requerida`;
 }
 
 async function getNextNumeroSocio(tx: BatchSyncClient) {
@@ -400,6 +426,7 @@ export async function importGestionRows({
   let omitidos = 0;
   let reintentados = 0;
   const errores: string[] = [];
+  const conflictos: string[] = [];
 
   for (const row of rows) {
     if (!row.nombre?.trim()) {
@@ -420,10 +447,12 @@ export async function importGestionRows({
             const [apellido1, apellido2] = splitApellidos(row.apellidos || "");
             const fechaNacimiento = row.fechaNacimiento ? new Date(row.fechaNacimiento) : null;
             const dni = normalizeDni(row.dni);
-            const numeroSocio = formatNumeroSocio(row.numeroSocio) ?? await getNextNumeroSocio(tx);
-            const existente = await findExistingSocio(tx, row);
+            const sourceNumeroSocio = formatNumeroSocio(row.numeroSocio);
+            const numeroSocio = sourceNumeroSocio ?? await getNextNumeroSocio(tx);
+            const match = await findExistingSocio(tx, row);
+            const existente = match.socio;
 
-            if (existente) {
+            if (existente && match.strength !== "name") {
               await tx.socio.update({
                 where: { id: existente.id },
                 data: {
@@ -441,6 +470,22 @@ export async function importGestionRows({
               return {
                 statusCode: 200,
                 body: { action: "updated" },
+              };
+            }
+
+            if (match.strength === "name" || (!sourceNumeroSocio && !dni)) {
+              return {
+                statusCode: 200,
+                body: {
+                  action: "unchanged",
+                  conflict: buildConflictReason({
+                    rowName: row.nombre,
+                    numeroSocio: sourceNumeroSocio,
+                    dni,
+                    strength: match.strength,
+                    matchedSocio: existente,
+                  }),
+                },
               };
             }
 
@@ -468,13 +513,27 @@ export async function importGestionRows({
         }),
       );
 
-      if (result.kind === "replay") {
-        reintentados += 1;
-        continue;
-      }
+        if (result.kind === "replay") {
+          reintentados += 1;
+          continue;
+        }
 
-      if (readAction(result.response.body) === "created") {
-        creados += 1;
+        const conflict =
+          typeof result.response.body === "object" &&
+          result.response.body !== null &&
+          "conflict" in result.response.body &&
+          typeof result.response.body.conflict === "string"
+            ? result.response.body.conflict
+            : null;
+
+        if (conflict) {
+          omitidos += 1;
+          conflictos.push(conflict);
+          continue;
+        }
+
+        if (readAction(result.response.body) === "created") {
+          creados += 1;
       } else {
         actualizados += 1;
       }
@@ -488,6 +547,7 @@ export async function importGestionRows({
     actualizados,
     omitidos,
     reintentados,
+    conflictos: conflictos.slice(0, 20),
     errores: errores.slice(0, 20),
   };
 }
@@ -516,6 +576,7 @@ export async function syncGestionMembers({
   let desactivados = 0;
   let sinCambios = 0;
   const errores: string[] = [];
+  const conflictos: string[] = [];
 
   for (const socio of gestionSocios) {
     try {
@@ -526,11 +587,14 @@ export async function syncGestionMembers({
           key: resolvedBatchKey,
           payload: socio,
           execute: async () => {
-            const existente = await findExistingSocio(tx, socio);
+            const match = await findExistingSocio(tx, socio);
+            const existente = match.socio;
             const [apellido1, apellido2] = splitApellidos(socio.apellidos || "");
+            const sourceNumeroSocio = formatNumeroSocio(socio.numero_socio);
+            const sourceDni = normalizeDni(socio.dni);
             const incoming = {
-              numeroSocio: formatNumeroSocio(socio.numero_socio) ?? await getNextNumeroSocio(tx),
-              dni: normalizeDni(socio.dni),
+              numeroSocio: sourceNumeroSocio ?? await getNextNumeroSocio(tx),
+              dni: sourceDni,
               nombre: normalizeName(socio.nombre),
               apellido1,
               apellido2,
@@ -540,7 +604,7 @@ export async function syncGestionMembers({
               filada: socio.filada_id != null ? filadaMap.get(socio.filada_id) ?? null : null,
             };
 
-            if (existente) {
+            if (existente && match.strength !== "name") {
               if (incoming.dni && incoming.dni !== existente.dni) {
                 await tx.socio.updateMany({ where: { dni: incoming.dni }, data: { dni: null } });
               }
@@ -555,6 +619,22 @@ export async function syncGestionMembers({
               });
 
               return { statusCode: 200, body: { action: "updated" } };
+            }
+
+            if (match.strength === "name" || (!sourceNumeroSocio && !sourceDni)) {
+              return {
+                statusCode: 200,
+                body: {
+                  action: "unchanged",
+                  conflict: buildConflictReason({
+                    rowName: socio.nombre,
+                    numeroSocio: sourceNumeroSocio,
+                    dni: sourceDni,
+                    strength: match.strength,
+                    matchedSocio: existente,
+                  }),
+                },
+              };
             }
 
             if (incoming.dni) {
@@ -573,6 +653,21 @@ export async function syncGestionMembers({
           },
         }),
       );
+
+      const conflict =
+        result.kind !== "replay" &&
+        typeof result.response.body === "object" &&
+        result.response.body !== null &&
+        "conflict" in result.response.body &&
+        typeof result.response.body.conflict === "string"
+          ? result.response.body.conflict
+          : null;
+
+      if (conflict) {
+        sinCambios += 1;
+        conflictos.push(conflict);
+        continue;
+      }
 
       const action = result.kind === "replay" ? "unchanged" : readAction(result.response.body);
       if (action === "created") creados += 1;
@@ -603,6 +698,7 @@ export async function syncGestionMembers({
     desactivados,
     sinCambios,
     noEncontrados: 0,
+    conflictos: conflictos.slice(0, 20),
     errores: errores.slice(0, 20),
   };
 }

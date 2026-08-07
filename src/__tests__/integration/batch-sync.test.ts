@@ -384,4 +384,52 @@ describe("batch sync hardening", () => {
     expect(retryRun).toMatchObject({ creados: 0, actualizados: 0, desactivados: 0, sinCambios: 1 });
     expect(harness.state.socios.filter((socio) => socio.dni === "777Z")).toHaveLength(1);
   });
+
+  it("blocks imports that only match an existing member by name", async () => {
+    const rows = [
+      {
+        numeroSocio: null,
+        dni: "",
+        nombre: "ADA",
+        apellidos: "LOVELACE",
+        tipoVinculacion: "socio",
+        fechaNacimiento: null,
+        activo: "true",
+      },
+    ];
+
+    const result = await importGestionRows({ batchKey: "import-name-conflict", rows, client: harness.db });
+
+    expect(result).toMatchObject({ creados: 0, actualizados: 0, omitidos: 1, reintentados: 0 });
+    expect(result.conflictos).toEqual([
+      "ADA: coincidencia solo por nombre con s-001; no se crea ni actualiza sin numeroSocio/DNI consistente",
+    ]);
+    expect(harness.state.socios).toHaveLength(2);
+  });
+
+  it("blocks sync rows that arrive without strong identifiers", async () => {
+    const result = await syncGestionMembers({
+      gestionSocios: [
+        {
+          id: "gestion-weak-1",
+          numero_socio: null,
+          dni: null,
+          nombre: "NUEVO",
+          apellidos: "SOCIO",
+          tipo_vinculacion: "socio",
+          fecha_nacimiento: null,
+          filada_id: null,
+        },
+      ],
+      filadas: [],
+      activeMemberIds: new Set<string>(["gestion-weak-1"]),
+      client: harness.db,
+    });
+
+    expect(result).toMatchObject({ creados: 0, actualizados: 0, sinCambios: 1, desactivados: 0 });
+    expect(result.conflictos).toEqual([
+      "NUEVO: sin numeroSocio ni DNI; no se crea socio nuevo con match débil",
+    ]);
+    expect(harness.state.socios).toHaveLength(2);
+  });
 });

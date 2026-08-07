@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { href: "/admin/transacciones", label: "Transacciones", adminOnly: true },
   { href: "/admin/importar", label: "Importar Socios", adminOnly: true },
   { href: "/admin/productos", label: "Productos", adminOnly: true },
+  { href: "/admin/reconciliar-qr", label: "Reconciliar QR", adminOnly: true },
   { href: "/admin/puntos", label: "Puntos", adminOnly: true },
   { href: "/admin/qr-masivo", label: "QR Masivo", adminOnly: true },
   { href: "/admin/recargar", label: "Recarga Masiva", adminOnly: true },
