@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import { logAdminAction } from "@/lib/admin-audit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -40,9 +41,23 @@ export async function PUT(
         : await bcrypt.hash(data.password, 10);
     }
 
-    await db.puntoVenta.update({
+    const updated = await db.puntoVenta.update({
       where: { id: puntoId },
       data: updateData,
+    });
+
+    await logAdminAction({
+      session,
+      action: "punto_updated",
+      targetType: "punto_venta",
+      targetId: String(updated.id),
+      summary: `Actualizado punto ${updated.nombre}`,
+      details: {
+        changedName: data.nombre !== undefined,
+        changedPassword: data.password !== undefined,
+        permiso: data.permiso,
+        activo: data.activo,
+      },
     });
 
     return apiSuccess({ success: true });
@@ -67,7 +82,22 @@ export async function DELETE(
       return apiError("ID de punto no válido", 400);
     }
 
+    const existing = await db.puntoVenta.findUnique({ where: { id: puntoId } });
+    if (!existing) {
+      return apiError("Punto no encontrado", 404);
+    }
+
     await db.puntoVenta.delete({ where: { id: puntoId } });
+
+    await logAdminAction({
+      session,
+      action: "punto_deleted",
+      targetType: "punto_venta",
+      targetId: String(existing.id),
+      summary: `Eliminado punto ${existing.nombre}`,
+      details: { permiso: existing.permiso },
+    });
+
     return apiSuccess({ success: true });
   } catch {
     return apiError("Error al eliminar punto", 500);

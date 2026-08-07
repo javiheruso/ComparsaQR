@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-error";
+import { logAdminAction } from "@/lib/admin-audit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -50,6 +51,15 @@ export async function POST(request: Request) {
 
     const punto = await db.puntoVenta.create({
       data: { nombre: data.nombre, password, permiso: data.permiso },
+    });
+
+    await logAdminAction({
+      session,
+      action: "punto_created",
+      targetType: "punto_venta",
+      targetId: String(punto.id),
+      summary: `Creado punto ${punto.nombre}`,
+      details: { permiso: punto.permiso },
     });
 
     return apiSuccess({ id: punto.id, nombre: punto.nombre, permiso: punto.permiso, activo: punto.activo }, 201);

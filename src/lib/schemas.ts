@@ -59,5 +59,25 @@ export const creditoSchema = z.object({
 });
 
 export const loginSchema = z.object({
+  username: z.string().min(1).optional(),
   password: z.string().min(1),
+});
+
+export const adminBootstrapSchema = z.object({
+  masterPassword: z.string().min(1),
+  nombre: z.string().min(1).max(100),
+  username: z.string().min(3).max(50),
+  password: z.string().min(4).max(100),
+});
+
+export const adminUserSchema = z.object({
+  nombre: z.string().min(1).max(100),
+  username: z.string().min(3).max(50),
+  password: z.string().min(4).max(100),
+});
+
+export const adminUserUpdateSchema = z.object({
+  nombre: z.string().min(1).max(100).optional(),
+  password: z.string().min(4).max(100).optional(),
+  activo: z.boolean().optional(),
 });

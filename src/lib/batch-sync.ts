@@ -115,7 +115,7 @@ function getActorMetadata(session: MoneyActorSession) {
   return {
     operator:
       actor.actorType === "admin"
-        ? "admin"
+        ? session?.adminNombre ?? session?.adminUsername ?? "admin"
         : actor.actorType === "punto"
           ? session?.puntoNombre ?? "punto"
           : actor.actorType === "scanner"

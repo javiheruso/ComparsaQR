@@ -5,6 +5,8 @@ import { canAccessAdmin } from "@/lib/access";
 
 const PUBLIC_PATHS = [
   "/api/auth/login",
+  "/api/auth/admin-status",
+  "/api/auth/bootstrap-admin",
   "/api/auth/logout",
   "/api/scanner-auth/login",
   "/api/heartbeat",

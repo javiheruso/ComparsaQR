@@ -1,6 +1,7 @@
-import { login } from "@/lib/auth";
+import { loginAdminUser } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess } from "@/lib/api-error";
+import { loginSchema } from "@/lib/schemas";
 
 function shouldUseSecureCookie(request: Request) {
   const forwardedProtocol = request.headers.get("x-forwarded-proto");
@@ -17,16 +18,17 @@ export async function POST(request: Request) {
       return apiError("Demasiados intentos. Intenta de nuevo en 1 minuto.", 429);
     }
 
-    const { password } = await request.json();
+    const body = await request.json();
+    const { username, password } = loginSchema.parse(body);
 
-    if (!password) {
-      return apiError("Contraseña requerida", 400);
+    if (!username) {
+      return apiError("Usuario requerido", 400);
     }
 
-    const tipo = await login(password, shouldUseSecureCookie(request));
+    const tipo = await loginAdminUser({ username, password, secureCookie: shouldUseSecureCookie(request) });
 
     if (!tipo) {
-      return apiError("Contraseña incorrecta", 401);
+      return apiError("Usuario o contraseña incorrectos", 401);
     }
 
     return apiSuccess({ success: true, tipo });

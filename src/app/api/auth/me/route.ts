@@ -20,6 +20,7 @@ export async function GET() {
     authenticated: true,
     tipo: "admin",
     nombre,
+    username: session.adminUsername ?? null,
     permiso,
     puntoNombre: session.puntoNombre ?? null,
   });

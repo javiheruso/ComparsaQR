@@ -42,6 +42,32 @@ model PuntoVenta {
   transacciones Transaccion[]
 }
 
+model AdminUser {
+  id           Int              @id @default(autoincrement())
+  username     String           @unique
+  nombre       String
+  passwordHash String
+  activo       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  actionLogs   AdminActionLog[]
+}
+
+model AdminActionLog {
+  id          Int        @id @default(autoincrement())
+  adminUserId Int?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  action      String
+  targetType  String
+  targetId    String?
+  summary     String?
+  details     Json?
+  createdAt   DateTime   @default(now())
+
+  @@index([adminUserId, createdAt])
+  @@index([targetType, createdAt])
+}
+
 model Socio {
   id               Int              @id @default(autoincrement())
   numeroSocio      String           @unique

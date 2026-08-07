@@ -53,6 +53,7 @@ function ScannerResultContent() {
   const [cargarCantidad, setCargarCantidad] = useState("");
   const [cargarDescripcion, setCargarDescripcion] = useState("");
   const [mostrarAuth, setMostrarAuth] = useState(false);
+  const [usernameCarga, setUsernameCarga] = useState("");
   const [passwordCarga, setPasswordCarga] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [verificando, setVerificando] = useState(false);
@@ -191,7 +192,7 @@ function ScannerResultContent() {
   // ─── Cargar saldo ───────────────────────────────────
   // ─── Verificar contraseña para cargar saldo ────────
   const verificarParaCargar = async () => {
-    if (!passwordCarga) return;
+    if (!usernameCarga || !passwordCarga) return;
     setVerificando(true);
     setAuthError(null);
 
@@ -199,18 +200,20 @@ function ScannerResultContent() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: passwordCarga }),
+        body: JSON.stringify({ username: usernameCarga, password: passwordCarga }),
       });
 
       if (res.ok) {
         setMostrarAuth(false);
+        setUsernameCarga("");
         setPasswordCarga("");
         setError(null);
         setCargarCantidad("");
         setCargarDescripcion("");
         setMostrarCargar(true);
       } else {
-        setAuthError("Contraseña incorrecta");
+        const data = await res.json().catch(() => ({}));
+        setAuthError(data.error ?? "Usuario o contraseña incorrectos");
       }
     } catch {
       setAuthError("Error de conexión");
@@ -322,6 +325,7 @@ function ScannerResultContent() {
                 <button
                   onClick={() => {
                     setAuthError(null);
+                    setUsernameCarga("");
                     setPasswordCarga("");
                     setMostrarAuth(true);
                   }}
@@ -526,8 +530,20 @@ function ScannerResultContent() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Introduce la contraseña de administrador para poder cargar crédito.
+              Introduce el usuario y contraseña del administrador para poder cargar crédito.
             </p>
+
+            <input
+              type="text"
+              value={usernameCarga}
+              onChange={(e) => {
+                setUsernameCarga(e.target.value);
+                setAuthError(null);
+              }}
+              placeholder="Usuario"
+              autoFocus
+              className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+            />
 
             <div className="relative">
               <input
@@ -541,7 +557,6 @@ function ScannerResultContent() {
                   if (e.key === "Enter") verificarParaCargar();
                 }}
                 placeholder="Contraseña"
-                autoFocus
                 className="w-full px-4 py-3 pr-12 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
               />
               <button
@@ -561,7 +576,7 @@ function ScannerResultContent() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={verificarParaCargar}
-                disabled={verificando || !passwordCarga}
+                disabled={verificando || !usernameCarga || !passwordCarga}
                 className="flex-1 py-2.5 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
               >
                 {verificando ? "Verificando..." : "Verificar"}
@@ -569,6 +584,7 @@ function ScannerResultContent() {
               <button
                 onClick={() => {
                   setMostrarAuth(false);
+                  setUsernameCarga("");
                   setPasswordCarga("");
                   setAuthError(null);
                 }}

@@ -1,4 +1,4 @@
-import { login } from "@/lib/auth";
+import { loginScannerOrPunto } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess } from "@/lib/api-error";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       return apiError("Clave requerida", 400);
     }
 
-    const tipo = await login(password, shouldUseSecureCookie(request));
+    const tipo = await loginScannerOrPunto(password, shouldUseSecureCookie(request));
 
     if (!tipo) {
       return apiError("Clave incorrecta", 401);

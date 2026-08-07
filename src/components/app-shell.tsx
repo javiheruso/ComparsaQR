@@ -10,6 +10,7 @@ interface SessionInfo {
   authenticated: boolean;
   tipo: string;
   nombre: string | null;
+  username?: string | null;
   permiso: string | null;
   puntoNombre: string | null;
 }
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { href: "/admin/transacciones", label: "Transacciones", adminOnly: true },
   { href: "/admin/importar", label: "Importar Socios", adminOnly: true },
   { href: "/admin/productos", label: "Productos", adminOnly: true },
+  { href: "/admin/usuarios", label: "Usuarios Admin", adminOnly: true },
   { href: "/admin/reconciliar-qr", label: "Reconciliar QR", adminOnly: true },
   { href: "/admin/puntos", label: "Puntos", adminOnly: true },
   { href: "/admin/qr-masivo", label: "QR Masivo", adminOnly: true },

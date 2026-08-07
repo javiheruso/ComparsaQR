@@ -10,6 +10,9 @@ export interface SessionData {
   scannerVerified: boolean;
   actorType?: "admin" | "scanner" | "punto";
   actorId?: string;
+  adminUserId?: number;
+  adminUsername?: string;
+  adminNombre?: string;
   puntoVentaId?: number;
   puntoNombre?: string;
   puntoPermiso?: PermisoPunto;
@@ -62,23 +65,83 @@ export async function getSession() {
   return session;
 }
 
-export async function login(password: string, secureCookie?: boolean): Promise<string | null> {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (adminPassword && await verifyPassword(password, adminPassword)) {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
-    session.isLoggedIn = true;
-    session.scannerVerified = false;
-    session.actorType = "admin";
-    session.actorId = "admin";
-    session.puntoVentaId = undefined;
-    session.puntoNombre = undefined;
-    session.puntoPermiso = undefined;
-    session.sessionVersion = 1;
-    await session.save();
-    return "admin";
+async function saveAdminSession(input: {
+  secureCookie?: boolean;
+  adminUserId: number;
+  adminUsername: string;
+  adminNombre: string;
+}) {
+  const cookieStore = await cookies();
+  const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(input.secureCookie));
+  session.isLoggedIn = true;
+  session.scannerVerified = false;
+  session.actorType = "admin";
+  session.actorId = `admin:${input.adminUserId}`;
+  session.adminUserId = input.adminUserId;
+  session.adminUsername = input.adminUsername;
+  session.adminNombre = input.adminNombre;
+  session.puntoVentaId = undefined;
+  session.puntoNombre = undefined;
+  session.puntoPermiso = undefined;
+  session.sessionVersion = 1;
+  await session.save();
+}
+
+export async function loginAdminUser(input: {
+  username: string;
+  password: string;
+  secureCookie?: boolean;
+}): Promise<string | null> {
+  const { authenticateAdminUser } = await import("@/lib/admin-users");
+  const adminUser = await authenticateAdminUser(input.username, input.password);
+  if (!adminUser) {
+    return null;
   }
 
+  await saveAdminSession({
+    secureCookie: input.secureCookie,
+    adminUserId: adminUser.id,
+    adminUsername: adminUser.username,
+    adminNombre: adminUser.nombre,
+  });
+
+  return "admin";
+}
+
+export async function bootstrapAdminUser(input: {
+  nombre: string;
+  username: string;
+  password: string;
+  masterPassword: string;
+  secureCookie?: boolean;
+}): Promise<string | null> {
+  const { createAdminUser, hasAdminUsers } = await import("@/lib/admin-users");
+  if (await hasAdminUsers()) {
+    return null;
+  }
+
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword || !(await verifyPassword(input.masterPassword, adminPassword))) {
+    return null;
+  }
+
+  const adminUser = await createAdminUser({
+    nombre: input.nombre,
+    username: input.username,
+    password: input.password,
+  });
+
+  await saveAdminSession({
+    secureCookie: input.secureCookie,
+    adminUserId: adminUser.id,
+    adminUsername: adminUser.username,
+    adminNombre: adminUser.nombre,
+  });
+
+  return "admin";
+}
+
+export async function loginScannerOrPunto(password: string, secureCookie?: boolean): Promise<string | null> {
   const punto = await loginPuntoVenta(password, secureCookie);
   if (punto) return punto;
 
@@ -88,11 +151,14 @@ export async function login(password: string, secureCookie?: boolean): Promise<s
     const session = await getIronSession<SessionData>(cookieStore, getSessionOptions(secureCookie));
     session.isLoggedIn = false;
     session.scannerVerified = true;
-    session.actorType = "scanner";
-    session.actorId = "scanner";
-    session.puntoVentaId = undefined;
-    session.puntoNombre = undefined;
-    session.puntoPermiso = undefined;
+      session.actorType = "scanner";
+      session.actorId = "scanner";
+      session.adminUserId = undefined;
+      session.adminUsername = undefined;
+      session.adminNombre = undefined;
+      session.puntoVentaId = undefined;
+      session.puntoNombre = undefined;
+      session.puntoPermiso = undefined;
     session.sessionVersion = 1;
     await session.save();
     return "scanner";
@@ -111,6 +177,9 @@ async function loginPuntoVenta(password: string, secureCookie?: boolean): Promis
       session.scannerVerified = true;
       session.actorType = "punto";
       session.actorId = `punto:${punto.id}`;
+      session.adminUserId = undefined;
+      session.adminUsername = undefined;
+      session.adminNombre = undefined;
       session.puntoVentaId = punto.id;
       session.puntoNombre = punto.nombre;
       session.puntoPermiso = punto.permiso;
@@ -136,7 +205,7 @@ export async function hasScannerAccess(): Promise<boolean> {
 export async function getOperador(): Promise<string | null> {
   const session = await getSession();
   const actor = getActorContext(session);
-  if (actor.actorType === "admin") return "admin";
+  if (actor.actorType === "admin") return session.adminNombre ?? session.adminUsername ?? "admin";
   if (actor.actorType === "punto") return session.puntoNombre ?? "punto";
   if (actor.actorType === "scanner") return "scanner";
   return null;
